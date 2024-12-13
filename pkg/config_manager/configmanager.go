@@ -10,15 +10,25 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"bufio"
+	"strings"
+	"reflect"
+	"os"
 )
 
-type PartitionInfo struct {
-	DeviceID       int `json:"device_id"`
-	ComputePartitions []struct {
-		PartitionID    int    `json:"partition_id"`
-		PartitionType  string `json:"partition_type"`
-		MemoryPartition string `json:"memory_partition"`
-	} `json:"compute_partitions"`
+type Profile struct { 
+	Compute string `json:"compute"`
+	Memory string `json:"memory"` 
+}
+
+type PartitionProfiles struct { 
+	Default Profile `json:"default"`
+	Profile1 Profile `json:"profile-1"`
+	Profile2 Profile `json:"profile-2"`
+}
+
+type PartitionInfo struct { 
+	PartitionProfiles PartitionProfiles `json:"partition-profiles"` 
 }
 
 func getComputePartitionType(partitionType string) C.amdsmi_compute_partition_type_t {
@@ -109,6 +119,39 @@ func amdsmiGetProcessorHandles(socket C.amdsmi_socket_handle) ([]C.amdsmi_proces
 }
 
 func main() {
+
+	filename := "partition.json"
+
+	partitionInfo, err := readPartitionInfoFromJSON(filename)
+	fmt.Println("Partition info %+v",partitionInfo)
+	if err != nil {
+		log.Fatalf("Error reading partition info: %v\n", err)
+	}
+
+	// Get the profile name from the user 
+	reader := bufio.NewReader(os.Stdin) 
+	fmt.Print("Enter profile name (default, profile1, profile2): ") 
+	profileName, _ := reader.ReadString('\n')
+	profileName = strings.TrimSpace(profileName)
+
+	profilesValue := reflect.ValueOf(partitionInfo.PartitionProfiles)
+	profileField := profilesValue.FieldByNameFunc(
+	func(name string) bool { 
+		pname := strings.EqualFold(name, profileName)
+		return pname
+	})
+
+	var profile Profile
+	if profileField.IsValid() { 
+		profile = profileField.Interface().(Profile) 
+		fmt.Printf("%s: Compute = %s, Memory = %s\n", profileName, profile.Compute, profile.Memory) 
+	} else { 
+		fmt.Println("Invalid profile name.", profileName) 
+	}
+
+	computeType := getComputePartitionType(profile.Compute)
+	memoryType := getMemoryPartitionType(profile.Memory)
+
     // Initialize the AMD SMI library for GPU
     ret := C.amdsmi_init(C.AMDSMI_INIT_AMD_GPUS)
     if ret != C.AMDSMI_STATUS_SUCCESS {
@@ -140,30 +183,17 @@ func main() {
 		}
 	}
 
-	filename := "partition.json"
-
-	partitionInfo, err := readPartitionInfoFromJSON(filename)
-	fmt.Println("Partition info %+v",partitionInfo)
-	if err != nil {
-		log.Fatalf("Error reading partition info: %v\n", err)
+	ret_n := C.amdsmi_set_gpu_compute_partition(processor_handles[0], computeType)
+	
+	if ret_n != C.AMDSMI_STATUS_SUCCESS {
+		fmt.Printf("Failed to partition %v \n", ret_n)
 	}
-
-	for _, partition := range partitionInfo.ComputePartitions {
-		computeType := getComputePartitionType(partition.PartitionType)
-		memoryType := getMemoryPartitionType(partition.MemoryPartition)
-
-		ret := C.amdsmi_set_gpu_compute_partition(processor_handles[partition.PartitionID], computeType)
-		
+	fmt.Printf("Successfully configured partition %\n having memory partition %d", 0, memoryType)
+	for i:=0; i<len(sockets); i++ {
+		processor_handles, device_count = amdsmiGetProcessorHandles(sockets[i])
 		if ret != C.AMDSMI_STATUS_SUCCESS {
-			fmt.Printf("Failed to partition %v \n", ret)
+			fmt.Println("Failed to get socket count")
 		}
-		fmt.Printf("Successfully configured partition %\n having memory partition %d", partition.PartitionID, memoryType)
-		for i:=0; i<len(sockets); i++ {
-			processor_handles, device_count = amdsmiGetProcessorHandles(sockets[i])
-			if ret != C.AMDSMI_STATUS_SUCCESS {
-				fmt.Println("Failed to get socket count")
-			}
-			fmt.Println("Device count after", device_count)
-		}
+		fmt.Println("Device count after", device_count)
 	}
 }
