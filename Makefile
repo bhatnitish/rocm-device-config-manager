@@ -1,7 +1,4 @@
-OUT_DIR := bin
 TOP_DIR := $(PWD)
-
-export ${OUT_DIR}
 
 .PHONY:clean
 clean:

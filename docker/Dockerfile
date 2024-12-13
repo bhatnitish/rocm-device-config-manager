@@ -3,8 +3,8 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:9.4
 LABEL maintainer="AMD Inc"
 LABEL OS="registry.access.redhat.com/ubi9/ubi-minimal:9.4"
 # unused for now revisit
-ARG ROCM_VERSION=6.2
-ARG AMDGPU_VERSION=6.2
+ARG ROCM_VERSION=6.3
+ARG AMDGPU_VERSION=6.3
 
 ADD rhelrepofiles/amdgpu.repo /etc/yum.repos.d/amdgpu.repo 
 ADD rhelrepofiles/rocm.repo /etc/yum.repos.d/rocm.repo
