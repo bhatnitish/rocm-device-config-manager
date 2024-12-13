@@ -12,7 +12,6 @@ import (
 	"log"
 )
 
-// Define structures to match the JSON structure
 type PartitionInfo struct {
 	DeviceID       int `json:"device_id"`
 	ComputePartitions []struct {
@@ -36,7 +35,6 @@ func getComputePartitionType(partitionType string) C.amdsmi_compute_partition_ty
 	}
 }
 
-// Convert string memory partition type to the appropriate enum
 func getMemoryPartitionType(memoryPartition string) C.amdsmi_memory_partition_type_t {
 	switch memoryPartition {
 	case "NPS1":
@@ -75,40 +73,38 @@ func amdsmiGetSocketHandles() ([]C.amdsmi_socket_handle, int) {
 		return nil, 0
 	}
 
-	// Allocate the memory for the sockets
+	// allocating the memory for the sockets
 	sockets := make([]C.amdsmi_socket_handle, socketCount)
 
-	// Now get the actual socket handles
+	// get the actual socket handles
 	ret = C.amdsmi_get_socket_handles(&socketCount, &sockets[0])
 	if ret != C.AMDSMI_STATUS_SUCCESS {
 		fmt.Println("Failed to get socket handles")
 		return nil, 0
 	}
 
-	// Return the socket handles and the count
+	// return the socket handles and the count
 	return sockets, int(socketCount)
 }
 
 func amdsmiGetProcessorHandles(socket C.amdsmi_socket_handle) ([]C.amdsmi_processor_handle, int) {
 	var device_count C.uint32_t
-	// First, call amdsmi_get_processor_handles to get the count
 	ret := C.amdsmi_get_processor_handles(socket, &device_count, nil)
 	if ret != C.AMDSMI_STATUS_SUCCESS {
 		fmt.Println("Failed to get device count")
 		return nil, 0
 	}
 
-	// Allocate the memory for the processor
+	// allocating the memory for the processor
 	processors := make([]C.amdsmi_processor_handle, device_count)
 
-	// Now get the actual processor handles
 	ret = C.amdsmi_get_processor_handles(socket, &device_count, &processors[0])
 	if ret != C.AMDSMI_STATUS_SUCCESS {
 		fmt.Println("Failed to get processor handles")
 		return nil, 0
 	}
 
-	// Return the socket handles and the count
+	// return the socket handles and the device count
 	return processors, int(device_count)
 }
 
@@ -144,13 +140,8 @@ func main() {
 		}
 	}
 
-	// fmt.Println("socket_count %+v", socket_count)
-    // Further usage of AMD SMI functions can be placed here.
-	// Path to your JSON configuration file
 	filename := "partition.json"
 
-	// socket_vector := make([]int, )
-	// Read and parse the partition info from JSON file
 	partitionInfo, err := readPartitionInfoFromJSON(filename)
 	fmt.Println("Partition info %+v",partitionInfo)
 	if err != nil {
@@ -158,7 +149,6 @@ func main() {
 	}
 
 	for _, partition := range partitionInfo.ComputePartitions {
-		// Convert partition types to the corresponding enums
 		computeType := getComputePartitionType(partition.PartitionType)
 		memoryType := getMemoryPartitionType(partition.MemoryPartition)
 
