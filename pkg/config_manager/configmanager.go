@@ -10,34 +10,96 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"bufio"
-	"strings"
-	"reflect"
-	"os"
+	"flag"
+
+	"github.com/fsnotify/fsnotify"
+    "github.com/prometheus/client_golang/prometheus"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
+    "net/http"
 )
 
-type Profile struct { 
-	Compute string `json:"compute"`
-	Memory string `json:"memory"` 
-}
-
 type PartitionProfiles struct { 
-	Default Profile `json:"default"`
-	Profile1 Profile `json:"profile-1"`
-	Profile2 Profile `json:"profile-2"`
+	PartitionProfiles map[string]struct { 
+		Compute string `json:"compute"`
+		Memory string `json:"memory"`
+	} `json:"partition-profiles"` 
 }
 
-type PartitionInfo struct { 
-	PartitionProfiles PartitionProfiles `json:"partition-profiles"` 
+// Global variables
+var jsonFilePath = "partition.json"
+var previousCompute string 
+var selectedProfile string
+
+var (
+    paritionName = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Name: "parition_name_change",
+            Help: "Tracks the changes in parition name",
+        },
+        []string{"name"},
+    )
+)
+
+func init() {
+    prometheus.MustRegister(paritionName)
+}
+
+func main() {
+
+	// Read profile name from command line argument
+	flag.StringVar(&selectedProfile, "profile", "default", "Profile name to monitor")
+	flag.Parse()
+    // Start Prometheus metrics server
+    go func() {
+        http.Handle("/metrics", promhttp.Handler())
+        log.Fatal(http.ListenAndServe(":8080", nil))
+    }()
+
+    watcher, err := fsnotify.NewWatcher()
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer watcher.Close()
+
+    // Initial read
+    paritionGPU()
+
+    // Add the JSON file to the watcher
+    err = watcher.Add(jsonFilePath)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Watch for changes
+    go func() {
+        for {
+            select {
+            case event, ok := <-watcher.Events:
+                if !ok {
+                    return
+                }
+                if event.Op&fsnotify.Write == fsnotify.Write {
+                    log.Println("Detected changes in parition.json, re-reading the file.")
+                    paritionGPU()
+                }
+            case err, ok := <-watcher.Errors:
+                if !ok {
+                    return
+                }
+                log.Println("Error:", err)
+            }
+        }
+    }()
+
+    // Keep the program running
+    <-make(chan struct{})
 }
 
 func getComputePartitionType(partitionType string) C.amdsmi_compute_partition_type_t {
 	switch partitionType {
 	case "CPX":
-		fmt.Println("AMDSMI_COMPUTE_PARTITION_CPX", C.AMDSMI_COMPUTE_PARTITION_CPX)
 		return C.AMDSMI_COMPUTE_PARTITION_CPX
 	case "SPX":
-		fmt.Println("AMDSMI_COMPUTE_PARTITION_SPX", C.AMDSMI_COMPUTE_PARTITION_SPX)
 		return C.AMDSMI_COMPUTE_PARTITION_SPX
 	default:
 		log.Fatalf("Unknown compute partition type: %s", partitionType)
@@ -48,10 +110,8 @@ func getComputePartitionType(partitionType string) C.amdsmi_compute_partition_ty
 func getMemoryPartitionType(memoryPartition string) C.amdsmi_memory_partition_type_t {
 	switch memoryPartition {
 	case "NPS1":
-		fmt.Println("AMDSMI_MEMORY_PARTITION_NPS1", C.AMDSMI_MEMORY_PARTITION_NPS1)
 		return C.AMDSMI_MEMORY_PARTITION_NPS1
 	case "NPS4":
-		fmt.Println("AMDSMI_MEMORY_PARTITION_NPS4", C.AMDSMI_MEMORY_PARTITION_NPS4)
 		return C.AMDSMI_MEMORY_PARTITION_NPS4
 	default:
 		log.Fatalf("Unknown memory partition type: %s", memoryPartition)
@@ -60,13 +120,13 @@ func getMemoryPartitionType(memoryPartition string) C.amdsmi_memory_partition_ty
 }
 
 
-func readPartitionInfoFromJSON(filename string) (*PartitionInfo, error) {
+func readPartitionInfoFromJSON(filename string) (*PartitionProfiles, error) {
 	file, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %v", err)
+		return nil, fmt.Errorf("failed to read file %v: %v",filename, err)
 	}
 
-	var partitionInfo PartitionInfo
+	var partitionInfo PartitionProfiles
 	err = json.Unmarshal(file, &partitionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
@@ -118,38 +178,25 @@ func amdsmiGetProcessorHandles(socket C.amdsmi_socket_handle) ([]C.amdsmi_proces
 	return processors, int(device_count)
 }
 
-func main() {
+func paritionGPU() {
 
-	filename := "partition.json"
-
-	partitionInfo, err := readPartitionInfoFromJSON(filename)
-	fmt.Println("Partition info %+v",partitionInfo)
+	partitionInfo, err := readPartitionInfoFromJSON(jsonFilePath)
 	if err != nil {
 		log.Fatalf("Error reading partition info: %v\n", err)
 	}
 
-	// Get the profile name from the user 
-	reader := bufio.NewReader(os.Stdin) 
-	fmt.Print("Enter profile name (default, profile1, profile2): ") 
-	profileName, _ := reader.ReadString('\n')
-	profileName = strings.TrimSpace(profileName)
-
-	profilesValue := reflect.ValueOf(partitionInfo.PartitionProfiles)
-	profileField := profilesValue.FieldByNameFunc(
-	func(name string) bool { 
-		pname := strings.EqualFold(name, profileName)
-		return pname
-	})
-
-	var profile Profile
-	if profileField.IsValid() { 
-		profile = profileField.Interface().(Profile) 
-		fmt.Printf("%s: Compute = %s, Memory = %s\n", profileName, profile.Compute, profile.Memory) 
-	} else { 
-		fmt.Println("Invalid profile name.", profileName) 
+	profile, exists := partitionInfo.PartitionProfiles[selectedProfile]
+	if !exists { 
+		log.Fatalf("Profile %s not found", selectedProfile) 
 	}
 
-	computeType := getComputePartitionType(profile.Compute)
+	currentCompute := profile.Compute
+	if currentCompute != previousCompute { 
+		fmt.Printf("Profile: %s, Updated Compute: %s\n", selectedProfile, currentCompute)
+		previousCompute = currentCompute 
+	}
+
+	computeType := getComputePartitionType(currentCompute)
 	memoryType := getMemoryPartitionType(profile.Memory)
 
     // Initialize the AMD SMI library for GPU
@@ -196,4 +243,11 @@ func main() {
 		}
 		fmt.Println("Device count after", device_count)
 	}
+
+	// Initialize the AMD SMI library for GPU
+    ret = C.amdsmi_shut_down()
+    if ret != C.AMDSMI_STATUS_SUCCESS {
+        fmt.Println("Failed to shutdown AMD SMI!")
+    }
+	paritionName.WithLabelValues(currentCompute).Set(1)
 }

@@ -7,11 +7,6 @@
             "memory": "NPS1" 
         },
         "profile-1":
-        {
-            "compute": "SPX", 
-            "memory": "NPS4" 
-        },
-        "profile-2":
         { 
             "compute": "CPX", 
             "memory": "NPS1" 

@@ -21,12 +21,13 @@ set -euo pipefail
 # start rdcd and gpuagent processes
 # start rdcd in the background
 # WORKAROUND FIX : rdcd logs are overflowing on stdin move it to null for now
-LD_LIBRARY_PATH=/opt/rocm-6.2.0/lib:/opt/rocm-6.2.0/lib/rdc /opt/rocm-6.2.0/bin/rdcd -u 1>/dev/null 2>&1 &
-# sleep before starting gpuagent
+LD_LIBRARY_PATH=/opt/rocm-6.3.0/lib &
+# sleep
 sleep 10
-# Print a message indicating the container is running
-echo "Container is running..."
+LD_LIBRARY_PATH=/home/amd/lib/ &
 
-# Running an infinite loop to keep the container alive
-tail -f /dev/null
-
+# sleep before starting promethesu server
+sleep 10
+# start prometheus server
+cd /home/amd/bin/
+./server
