@@ -23,15 +23,13 @@ VER=v1
 SAVE_IMAGE=0
 PUBLISH_IMAGE=0
 DOCKER_REGISTRY="registry.test.pensando.io:5000/device-config-manager/"
-#TODO : rename to official dcm later
-CONFIGMANAGER_IMAGE="dcm"
+CONFIGMANAGER_IMAGE="conf_manager"
 
 IMAGE_URL="${DOCKER_REGISTRY}${CONFIGMANAGER_IMAGE}:${VER}"
 
 echo $TOP_DIR
 cp -r $TOP_DIR/assets/amd_smi_lib $TOP_DIR/docker/smilib
 ln -f $TOP_DIR/pkg/config_manager/bin/amd-config-manager $TOP_DIR/docker/amd-config-manager
-cp -f $TOP_DIR/pkg/config_manager/partition.json $TOP_DIR/docker/partition.json
 
 docker build -t $IMAGE_URL . -f Dockerfile && docker save -o configmanager-docker-$VER.tar $IMAGE_URL
 if [ $? -eq 0 ]; then

@@ -11,49 +11,23 @@ import (
 	"io/ioutil"
 	"log"
 	"flag"
+	"os"
 
 	"github.com/fsnotify/fsnotify"
-    "github.com/prometheus/client_golang/prometheus"
-    "github.com/prometheus/client_golang/prometheus/promhttp"
-    "net/http"
+	partition_pb "github.com/pensando/device-config-manager/gen/partition"
 )
-
-type PartitionProfiles struct { 
-	PartitionProfiles map[string]struct { 
-		Compute string `json:"compute"`
-		Memory string `json:"memory"`
-	} `json:"partition-profiles"` 
-}
 
 // Global variables
-var jsonFilePath = "partition.json"
+var jsonFilePath = "/etc/config-manager/config.json"
 var previousCompute string 
 var selectedProfile string
-
-var (
-    paritionName = prometheus.NewGaugeVec(
-        prometheus.GaugeOpts{
-            Name: "parition_name_change",
-            Help: "Tracks the changes in parition name",
-        },
-        []string{"name"},
-    )
-)
-
-func init() {
-    prometheus.MustRegister(paritionName)
-}
+var currentCompute string
 
 func main() {
 
 	// Read profile name from command line argument
-	flag.StringVar(&selectedProfile, "profile", "default", "Profile name to monitor")
+	flag.StringVar(&selectedProfile, "profile", "default", "Partition Compute type to monitor")
 	flag.Parse()
-    // Start Prometheus metrics server
-    go func() {
-        http.Handle("/metrics", promhttp.Handler())
-        log.Fatal(http.ListenAndServe(":8080", nil))
-    }()
 
     watcher, err := fsnotify.NewWatcher()
     if err != nil {
@@ -78,8 +52,8 @@ func main() {
                 if !ok {
                     return
                 }
-                if event.Op&fsnotify.Write == fsnotify.Write {
-                    log.Println("Detected changes in parition.json, re-reading the file.")
+                if event.Has(fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename) {
+                    log.Println("Detected changes in config.json, re-reading the file.")
                     paritionGPU()
                 }
             case err, ok := <-watcher.Errors:
@@ -119,21 +93,6 @@ func getMemoryPartitionType(memoryPartition string) C.amdsmi_memory_partition_ty
 	}
 }
 
-
-func readPartitionInfoFromJSON(filename string) (*PartitionProfiles, error) {
-	file, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file %v: %v",filename, err)
-	}
-
-	var partitionInfo PartitionProfiles
-	err = json.Unmarshal(file, &partitionInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
-	}
-
-	return &partitionInfo, nil
-}
 
 func amdsmiGetSocketHandles() ([]C.amdsmi_socket_handle, int) {
 	var socketCount C.uint32_t
@@ -180,25 +139,55 @@ func amdsmiGetProcessorHandles(socket C.amdsmi_socket_handle) ([]C.amdsmi_proces
 
 func paritionGPU() {
 
-	partitionInfo, err := readPartitionInfoFromJSON(jsonFilePath)
-	if err != nil {
-		log.Fatalf("Error reading partition info: %v\n", err)
+	configmap_exist :=false
+	if _, err := os.Stat(jsonFilePath); os.IsNotExist(err) {
+        fmt.Printf("failed to read file %v: %v",jsonFilePath, err)
+    } else {
+		fmt.Printf("Reading file: %v\n",jsonFilePath)
+        configmap_exist = true
 	}
 
-	profile, exists := partitionInfo.PartitionProfiles[selectedProfile]
-	if !exists { 
-		log.Fatalf("Profile %s not found", selectedProfile) 
+	// Convert the map to the Protobuf structure
+	profiles := &partition_pb.PartitionProfiles{
+		Profile: make(map[string]*partition_pb.PartitionProfile),
 	}
 
-	currentCompute := profile.Compute
+	if configmap_exist {
+		// Unmarshal the JSON data into a map
+		var data map[string]map[string]map[string]string
+		file, _ := ioutil.ReadFile(jsonFilePath)
+		err := json.Unmarshal(file, &data)
+		if err != nil {
+			log.Fatalf("Failed to unmarshal JSON: %v", err)
+		}
+	
+		for key, value := range data["partition-profiles"] {
+			profiles.Profile[key] = &partition_pb.PartitionProfile{
+				Compute: value["compute"],
+				Memory:  value["memory"],
+			}
+		}
+	
+		profile, exists := profiles.Profile[selectedProfile]
+		if !exists { 
+			log.Fatalf("Profile %s not found", selectedProfile) 
+		}
+		currentCompute = profile.Compute
+	} else {
+		profiles.Profile["default"] = &partition_pb.PartitionProfile{
+			Compute: "SPX",
+			Memory:  "NPS1",
+		}
+		profile := profiles.Profile["default"]
+		currentCompute = profile.Compute
+	}
+
 	if currentCompute != previousCompute { 
 		fmt.Printf("Profile: %s, Updated Compute: %s\n", selectedProfile, currentCompute)
 		previousCompute = currentCompute 
 	}
 
 	computeType := getComputePartitionType(currentCompute)
-	memoryType := getMemoryPartitionType(profile.Memory)
-
     // Initialize the AMD SMI library for GPU
     ret := C.amdsmi_init(C.AMDSMI_INIT_AMD_GPUS)
     if ret != C.AMDSMI_STATUS_SUCCESS {
@@ -216,7 +205,6 @@ func paritionGPU() {
 		if ret != C.AMDSMI_STATUS_SUCCESS {
 			fmt.Println("Failed to get socket count")
 		}
-		fmt.Println("Device count before", device_count)
 		for j:=0; j<device_count; j++ {
 			var processor_type C.processor_type_t 
 			ret := C.amdsmi_get_processor_type(processor_handles[j], &processor_type)
@@ -226,7 +214,7 @@ func paritionGPU() {
 			}
 			if (processor_type != C.AMDSMI_PROCESSOR_TYPE_AMD_GPU) {
 				fmt.Println("Expect AMDSMI_PROCESSOR_TYPE_AMD_GPU device type!\n", ret)
-			}
+			}	
 		}
 	}
 
@@ -235,13 +223,12 @@ func paritionGPU() {
 	if ret_n != C.AMDSMI_STATUS_SUCCESS {
 		fmt.Printf("Failed to partition %v \n", ret_n)
 	}
-	fmt.Printf("Successfully configured partition %\n having memory partition %d", 0, memoryType)
+
 	for i:=0; i<len(sockets); i++ {
 		processor_handles, device_count = amdsmiGetProcessorHandles(sockets[i])
 		if ret != C.AMDSMI_STATUS_SUCCESS {
 			fmt.Println("Failed to get socket count")
 		}
-		fmt.Println("Device count after", device_count)
 	}
 
 	// Initialize the AMD SMI library for GPU
@@ -249,5 +236,7 @@ func paritionGPU() {
     if ret != C.AMDSMI_STATUS_SUCCESS {
         fmt.Println("Failed to shutdown AMD SMI!")
     }
-	paritionName.WithLabelValues(currentCompute).Set(1)
+
+	fmt.Printf("Successfully configured partition\n")
+
 }

@@ -18,16 +18,12 @@ set -euo pipefail
 #
 #
 # entry point script run on creating a node management container
-# start rdcd and gpuagent processes
-# start rdcd in the background
-# WORKAROUND FIX : rdcd logs are overflowing on stdin move it to null for now
+
 LD_LIBRARY_PATH=/opt/rocm-6.3.0/lib &
 # sleep
 sleep 10
 LD_LIBRARY_PATH=/home/amd/lib/ &
 
-# sleep before starting promethesu server
 sleep 10
-# start prometheus server
-cd /home/amd/bin/
-./server
+# run the partition binary
+/home/amd/bin/server

@@ -1,0 +1,14 @@
+syntax = "proto3";
+option go_package = "gen/sample"; 
+package main;
+
+// Profile represents the compute and memory settings.
+message Profile {
+  string compute = 1;
+  string memory = 2;
+}
+
+// PartitionProfiles holds a map of profile names to their configurations.
+message PartitionProfiles {
+  map<string, Profile> partition_profiles = 1;
+}
