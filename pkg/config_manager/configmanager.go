@@ -15,10 +15,10 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	partition_pb "github.com/pensando/device-config-manager/gen/partition"
+	"github.com/pensando/device-config-manager/pkg/config_manager/globals"
 )
 
 // Global variables
-var jsonFilePath = "/etc/config-manager/config.json"
 var previousCompute string 
 var selectedProfile string
 var currentCompute string
@@ -38,8 +38,11 @@ func main() {
     // Initial read
     paritionGPU()
 
-    // Add the JSON file to the watcher
-    err = watcher.Add(jsonFilePath)
+	if _, err := os.Stat(globals.JsonFilePath); os.IsNotExist(err) {
+		<-make(chan struct{})
+	}
+	// Add the JSON file to the watcher
+    err = watcher.Add(globals.JsonFilePath)
     if err != nil {
         log.Fatal(err)
     }
@@ -140,10 +143,10 @@ func amdsmiGetProcessorHandles(socket C.amdsmi_socket_handle) ([]C.amdsmi_proces
 func paritionGPU() {
 
 	configmap_exist :=false
-	if _, err := os.Stat(jsonFilePath); os.IsNotExist(err) {
-        fmt.Printf("failed to read file %v: %v",jsonFilePath, err)
+	if _, err := os.Stat(globals.JsonFilePath); os.IsNotExist(err) {
+        fmt.Printf("failed to read file %v: %v", globals.JsonFilePath, err)
     } else {
-		fmt.Printf("Reading file: %v\n",jsonFilePath)
+		fmt.Printf("Reading file: %v\n", globals.JsonFilePath)
         configmap_exist = true
 	}
 
@@ -155,7 +158,7 @@ func paritionGPU() {
 	if configmap_exist {
 		// Unmarshal the JSON data into a map
 		var data map[string]map[string]map[string]string
-		file, _ := ioutil.ReadFile(jsonFilePath)
+		file, _ := ioutil.ReadFile(globals.JsonFilePath)
 		err := json.Unmarshal(file, &data)
 		if err != nil {
 			log.Fatalf("Failed to unmarshal JSON: %v", err)
