@@ -26,7 +26,7 @@ var currentCompute string
 func main() {
 
 	// Read profile name from command line argument
-	flag.StringVar(&selectedProfile, "profile", "default", "Partition Compute type to monitor")
+	flag.StringVar(&selectedProfile, "profile", "default", "Partition ComputePartition type to monitor")
 	flag.Parse()
 
     watcher, err := fsnotify.NewWatcher()
@@ -151,8 +151,8 @@ func paritionGPU() {
 	}
 
 	// Convert the map to the Protobuf structure
-	profiles := &partition_pb.PartitionProfiles{
-		Profile: make(map[string]*partition_pb.PartitionProfile),
+	profiles := &partition_pb.GPUConfigProfiles{
+		Profile: make(map[string]*partition_pb.GPUConfigProfile),
 	}
 
 	if configmap_exist {
@@ -164,10 +164,10 @@ func paritionGPU() {
 			log.Fatalf("Failed to unmarshal JSON: %v", err)
 		}
 	
-		for key, value := range data["partition-profiles"] {
-			profiles.Profile[key] = &partition_pb.PartitionProfile{
-				Compute: value["compute"],
-				Memory:  value["memory"],
+		for key, value := range data["gpu-config-profiles"] {
+			profiles.Profile[key] = &partition_pb.GPUConfigProfile{
+				ComputePartition: value["compute-partition"],
+				MemoryPartition:  value["memory-partition"],
 			}
 		}
 	
@@ -175,18 +175,18 @@ func paritionGPU() {
 		if !exists { 
 			log.Fatalf("Profile %s not found", selectedProfile) 
 		}
-		currentCompute = profile.Compute
+		currentCompute = profile.ComputePartition
 	} else {
-		profiles.Profile["default"] = &partition_pb.PartitionProfile{
-			Compute: "SPX",
-			Memory:  "NPS1",
+		profiles.Profile["default"] = &partition_pb.GPUConfigProfile{
+			ComputePartition: globals.DefaultComputePartition,
+			MemoryPartition:  globals.DefaultMemoryPartition,
 		}
 		profile := profiles.Profile["default"]
-		currentCompute = profile.Compute
+		currentCompute = profile.ComputePartition
 	}
 
 	if currentCompute != previousCompute { 
-		fmt.Printf("Profile: %s, Updated Compute: %s\n", selectedProfile, currentCompute)
+		fmt.Printf("Profile: %s, Updated ComputePartition: %s\n", selectedProfile, currentCompute)
 		previousCompute = currentCompute 
 	}
 
@@ -238,8 +238,7 @@ func paritionGPU() {
     ret = C.amdsmi_shut_down()
     if ret != C.AMDSMI_STATUS_SUCCESS {
         fmt.Println("Failed to shutdown AMD SMI!")
-    }
-
-	fmt.Printf("Successfully configured partition\n")
-
+    } else {
+		fmt.Printf("Successfully configured compute partition\n")
+	}
 }
