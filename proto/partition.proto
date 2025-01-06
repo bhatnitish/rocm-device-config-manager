@@ -35,12 +35,13 @@ enum GPUPartitionType {
     GPU_MEMORY_TYPE_PARTITION_NPS4      = 3;
 }
 
-message PartitionProfile {
-    string Compute = 1;
-    string Memory  = 2;
+message GPUConfigProfile {
+    string ComputePartition = 1;
+    string MemoryPartition  = 2;
 }
 
-message PartitionProfiles {
+//proto for gpu-config-profiles
+message GPUConfigProfiles {
     // list of all GPUPartitionType to be exported
-    map<string, PartitionProfile> Profile = 1;
+    map<string, GPUConfigProfile> Profile = 1;
 }
