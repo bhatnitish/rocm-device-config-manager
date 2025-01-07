@@ -10,12 +10,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"flag"
+	"reflect"
 	"os"
 
 	"github.com/fsnotify/fsnotify"
 	partition_pb "github.com/pensando/device-config-manager/gen/partition"
 	"github.com/pensando/device-config-manager/pkg/config_manager/globals"
+	"github.com/pensando/device-config-manager/pkg/amdgpu/k8sclient"
+	"k8s.io/client-go/tools/cache"
+	v1 "k8s.io/api/core/v1"
 )
 
 // Global variables
@@ -23,13 +26,44 @@ var previousCompute string
 var selectedProfile string
 var currentCompute string
 
-func main() {
+func getPartitionProfile() {
 
-	// Read profile name from command line argument
-	flag.StringVar(&selectedProfile, "profile", "default", "Partition ComputePartition type to monitor")
-	flag.Parse()
+	// need to use API to get node name
+	nodeName := "asrock-126-b3-3a"
+	if nodeName == "" {
+		fmt.Println("not a k8s deployment")
+		return
+	}
+	kc := k8sclient.NewClient()
+	labels, err := kc.GetNodelLabel(nodeName)
+	if err != nil {
+		fmt.Printf("err: %+v", err)
+		return
+	}
 
-    watcher, err := fsnotify.NewWatcher()
+	labelKey := "amd.com/gpu-config-profile"
+	triggerlabelKey := "amd.com/apply-gpu-config-profile"
+
+	if len(labels) != 0 {
+		gpuConfigProfileNodeLabel := labels[labelKey]
+		gpuConfigProfileNodeLabelApply := labels[triggerlabelKey]
+
+		if gpuConfigProfileNodeLabel == "" {
+			selectedProfile = "default"
+		} else {
+			selectedProfile = gpuConfigProfileNodeLabel
+		}
+
+		fmt.Printf("\nSelected profile name: %+v\n", selectedProfile)
+		fmt.Printf("GPU Config Profile Node Label Applied %+v\n", gpuConfigProfileNodeLabelApply)
+	} else {
+		fmt.Printf("No labels present on node, unusual\n")
+	}
+	return
+}
+
+func startFileWatcher() {
+	watcher, err := fsnotify.NewWatcher()
     if err != nil {
         log.Fatal(err)
     }
@@ -142,6 +176,7 @@ func amdsmiGetProcessorHandles(socket C.amdsmi_socket_handle) ([]C.amdsmi_proces
 
 func paritionGPU() {
 
+	fmt.Printf("Paritioning the GPU\n")
 	configmap_exist :=false
 	if _, err := os.Stat(globals.JsonFilePath); os.IsNotExist(err) {
         fmt.Printf("failed to read file %v: %v", globals.JsonFilePath, err)
@@ -241,4 +276,71 @@ func paritionGPU() {
     } else {
 		fmt.Printf("Successfully configured compute partition\n")
 	}
+}
+
+func printLabelChanges(oldLabels, newLabels map[string]string) {
+    // Check for added or updated labels
+    for key, newVal := range newLabels {
+		if key == "amd.com/apply-gpu-config-profile" && newVal == "start" {
+			getPartitionProfile()
+			paritionGPU()
+		}
+        if oldVal, exists := oldLabels[key]; !exists || oldVal != newVal {
+            fmt.Printf("Label changed: %s\nOld value: %s\nNew value: %s\n", key, oldVal, newVal)
+        }
+    }
+
+    // Check for removed labels
+    for key, oldVal := range oldLabels {
+        if _, exists := newLabels[key]; !exists {
+            fmt.Printf("Label removed: %s\nOld value: %s\n", key, oldVal)
+        }
+    }
+}
+
+func nodeLabelWatcher() {
+    
+	kc := k8sclient.NewClient()
+	nodeInformer := kc.GetNodeInformer()
+    
+	// Set up event handlers for the node informer
+    nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+        UpdateFunc: func(oldObj, newObj interface{}) {
+            oldNode := oldObj.(*v1.Node)
+            newNode := newObj.(*v1.Node)
+            if !reflect.DeepEqual(oldNode.Labels, newNode.Labels) {
+                printLabelChanges(oldNode.Labels, newNode.Labels)
+            } else {
+				fmt.Printf("Node updated but labels are unchanged: %s\n", newNode.Name)
+			}
+        },
+    })
+
+    // Start the informer
+    stopCh := make(chan struct{})
+    defer close(stopCh)
+    go nodeInformer.Run(stopCh)
+
+    // Wait for the informer to sync
+    if !cache.WaitForCacheSync(stopCh, nodeInformer.HasSynced) {
+        panic("Failed to sync informers")
+    }
+
+	fmt.Println("Informer is running and synced.")
+	// Keep the function running
+    <-make(chan struct{})
+}
+
+func main() {
+
+	//Read profile from node labeller
+	getPartitionProfile()
+
+	// starting a seperate go routine for file watcher
+    go startFileWatcher()
+
+	go nodeLabelWatcher()
+
+	// Keep the program running
+    <-make(chan struct{})
 }
