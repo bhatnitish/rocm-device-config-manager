@@ -1,14 +1,14 @@
 package k8sclient
 
 import (
-    "context"
+	"context"
 	"fmt"
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -70,10 +70,10 @@ func (k *K8sClient) GetNodeInformer() cache.SharedIndexInformer {
 	defer k.Unlock()
 
 	// Create a shared informer factory
-    factory := informers.NewSharedInformerFactory(k.clientset, 0)
+	factory := informers.NewSharedInformerFactory(k.clientset, 0)
 
-    // Create a node informer
-    nodeInformer := factory.Core().V1().Nodes().Informer()
+	// Create a node informer
+	nodeInformer := factory.Core().V1().Nodes().Informer()
 
 	return nodeInformer
 }
