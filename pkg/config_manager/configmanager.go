@@ -8,6 +8,7 @@ package main
 import "C"
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -22,32 +23,26 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// Global variables
-var previousCompute string
-var selectedProfile string
-var currentCompute string
+var existingCompute string = "SPX"
 
-func getPartitionProfile() {
+func getPartitionProfile() (string, error) {
 
-	// need to use API to get node name
-	nodeName := "asrock-126-b3-3a"
-	if nodeName == "" {
-		fmt.Println("not a k8s deployment")
-		return
-	}
+	var selectedProfile string
 	kc := k8sclient.NewClient()
+	nodeName, err := kc.GetNodes()
+	if nodeName == "" || (err != nil) {
+		if nodeName == "" {
+			err = errors.New("not a k8s deployment")
+		}
+		return "", err
+	}
 	labels, err := kc.GetNodelLabel(nodeName)
 	if err != nil {
-		fmt.Printf("err: %+v", err)
-		return
+		return "", err
 	}
 
-	labelKey := "amd.com/gpu-config-profile"
-	triggerlabelKey := "amd.com/apply-gpu-config-profile"
-
 	if len(labels) != 0 {
-		gpuConfigProfileNodeLabel := labels[labelKey]
-		gpuConfigProfileNodeLabelApply := labels[triggerlabelKey]
+		gpuConfigProfileNodeLabel := labels[globals.LabelKey]
 
 		if gpuConfigProfileNodeLabel == "" {
 			selectedProfile = "default"
@@ -56,14 +51,13 @@ func getPartitionProfile() {
 		}
 
 		fmt.Printf("\nSelected profile name: %+v\n", selectedProfile)
-		fmt.Printf("GPU Config Profile Node Label Applied %+v\n", gpuConfigProfileNodeLabelApply)
 	} else {
 		fmt.Printf("No labels present on node, unusual\n")
 	}
-	return
+	return selectedProfile, nil
 }
 
-func startFileWatcher() {
+func startFileWatcher(selectedProfile string) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -71,7 +65,7 @@ func startFileWatcher() {
 	defer watcher.Close()
 
 	// Initial read
-	paritionGPU()
+	paritionGPU(selectedProfile)
 
 	if _, err := os.Stat(globals.JsonFilePath); os.IsNotExist(err) {
 		<-make(chan struct{})
@@ -92,7 +86,6 @@ func startFileWatcher() {
 				}
 				if event.Has(fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename) {
 					log.Println("Detected changes in config.json, re-reading the file.")
-					paritionGPU()
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -174,8 +167,9 @@ func amdsmiGetProcessorHandles(socket C.amdsmi_socket_handle) ([]C.amdsmi_proces
 	return processors, int(device_count)
 }
 
-func paritionGPU() {
+func paritionGPU(selectedProfile string) {
 
+	var currentCompute string
 	fmt.Printf("Paritioning the GPU\n")
 	configmap_exist := false
 	if _, err := os.Stat(globals.JsonFilePath); os.IsNotExist(err) {
@@ -220,9 +214,14 @@ func paritionGPU() {
 		currentCompute = profile.ComputePartition
 	}
 
-	if currentCompute != previousCompute {
+	if currentCompute == existingCompute {
+		fmt.Printf("Nothing to do, GPU is already in desired compute state %s\nSelected Profile %s\n", currentCompute, selectedProfile)
+		return
+	}
+
+	if currentCompute != existingCompute {
 		fmt.Printf("Profile: %s, Updated ComputePartition: %s\n", selectedProfile, currentCompute)
-		previousCompute = currentCompute
+		existingCompute = currentCompute
 	}
 
 	computeType := getComputePartitionType(currentCompute)
@@ -278,15 +277,18 @@ func paritionGPU() {
 	}
 }
 
-func printLabelChanges(oldLabels, newLabels map[string]string) {
+func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
 	// Check for added or updated labels
 	for key, newVal := range newLabels {
-		if key == "amd.com/apply-gpu-config-profile" && newVal == "start" {
-			getPartitionProfile()
-			paritionGPU()
-		}
-		if oldVal, exists := oldLabels[key]; !exists || oldVal != newVal {
-			fmt.Printf("Label changed: %s\nOld value: %s\nNew value: %s\n", key, oldVal, newVal)
+		if key == globals.TriggerLabelKey && newVal != "" {
+			if oldVal, exists := oldLabels[key]; !exists || oldVal != newVal {
+				fmt.Printf("Label changed: %s\nOld value: %s\nNew value: %s\n", key, oldVal, newVal)
+				selectedProfile, err := getPartitionProfile()
+				if err != nil {
+					log.Fatalf("err: %+v", err)
+				}
+				paritionGPU(selectedProfile)
+			}
 		}
 	}
 
@@ -309,9 +311,9 @@ func nodeLabelWatcher() {
 			oldNode := oldObj.(*v1.Node)
 			newNode := newObj.(*v1.Node)
 			if !reflect.DeepEqual(oldNode.Labels, newNode.Labels) {
-				printLabelChanges(oldNode.Labels, newNode.Labels)
+				printAndApplyLabelChanges(oldNode.Labels, newNode.Labels)
 			} else {
-				fmt.Printf("Node updated but labels are unchanged: %s\n", newNode.Name)
+				fmt.Printf("Node %s updated but labels are unchanged.\n", newNode.Name)
 			}
 		},
 	})
@@ -334,10 +336,13 @@ func nodeLabelWatcher() {
 func main() {
 
 	//Read profile from node labeller
-	getPartitionProfile()
+	selectedProfile, err := getPartitionProfile()
+	if err != nil {
+		log.Fatalf("err: %+v", err)
+	}
 
 	// starting a seperate go routine for file watcher
-	go startFileWatcher()
+	go startFileWatcher(selectedProfile)
 
 	go nodeLabelWatcher()
 

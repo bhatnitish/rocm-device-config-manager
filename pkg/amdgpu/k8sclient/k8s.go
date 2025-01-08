@@ -48,6 +48,25 @@ func (k *K8sClient) reConnect() error {
 	return nil
 }
 
+func (k *K8sClient) GetNodes() (string, error) {
+	k.reConnect()
+	k.Lock()
+	defer k.Unlock()
+
+	// get all nodes
+	nodes, err := k.clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		panic(err.Error())
+		return "", err
+	}
+
+	for _, node := range nodes.Items {
+		fmt.Println("Node name:", node.Name)
+		return node.Name, nil
+	}
+	return "", nil
+}
+
 func (k *K8sClient) GetNodelLabel(nodeName string) (map[string]string, error) {
 	k.reConnect()
 	k.Lock()
