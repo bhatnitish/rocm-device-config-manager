@@ -9,3 +9,5 @@ amddcm:
 	${MAKE} -C pkg/config_manager TOP_DIR=$(TOP_DIR)
 	${MAKE} -C docker TOP_DIR=$(TOP_DIR)
 
+copyrights:
+	GOFLAGS=-mod=mod go run tools/build/copyright/main.go && ./tools/build/check-local-files.sh

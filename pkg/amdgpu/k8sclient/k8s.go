@@ -1,8 +1,26 @@
+
+/*
+Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package k8sclient
 
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,23 +66,14 @@ func (k *K8sClient) reConnect() error {
 	return nil
 }
 
-func (k *K8sClient) GetNodes() (string, error) {
-	k.reConnect()
-	k.Lock()
-	defer k.Unlock()
-
-	// get all nodes
-	nodes, err := k.clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		panic(err.Error())
-		return "", err
+func GetNodeName() string {
+	if os.Getenv("DS_NODE_NAME") != "" {
+		return os.Getenv("DS_NODE_NAME")
 	}
-
-	for _, node := range nodes.Items {
-		fmt.Println("Node name:", node.Name)
-		return node.Name, nil
+	if os.Getenv("NODE_NAME") != "" {
+		return os.Getenv("NODE_NAME")
 	}
-	return "", nil
+	return ""
 }
 
 func (k *K8sClient) GetNodelLabel(nodeName string) (map[string]string, error) {
