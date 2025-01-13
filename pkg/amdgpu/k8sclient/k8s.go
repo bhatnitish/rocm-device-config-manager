@@ -1,4 +1,3 @@
-
 /*
 Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
 
@@ -32,6 +31,7 @@ import (
 
 type K8sClient struct {
 	sync.Mutex
+	ctx       context.Context
 	clientset *kubernetes.Clientset
 }
 
@@ -55,8 +55,10 @@ func (k *K8sClient) init() error {
 	return nil
 }
 
-func NewClient() *K8sClient {
-	return &K8sClient{}
+func NewClient(ctx context.Context) *K8sClient {
+	return &K8sClient{
+		ctx: ctx,
+	}
 }
 
 func (k *K8sClient) reConnect() error {
@@ -70,9 +72,6 @@ func GetNodeName() string {
 	if os.Getenv("DS_NODE_NAME") != "" {
 		return os.Getenv("DS_NODE_NAME")
 	}
-	if os.Getenv("NODE_NAME") != "" {
-		return os.Getenv("NODE_NAME")
-	}
 	return ""
 }
 
@@ -80,7 +79,7 @@ func (k *K8sClient) GetNodelLabel(nodeName string) (map[string]string, error) {
 	k.reConnect()
 	k.Lock()
 	defer k.Unlock()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(k.ctx)
 	defer cancel()
 
 	node, err := k.clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
