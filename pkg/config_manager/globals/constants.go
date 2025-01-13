@@ -21,7 +21,7 @@ const (
 	JsonFilePath            = "/etc/config-manager/config.json"
 	DefaultComputePartition = "SPX"
 	DefaultMemoryPartition  = "NPS1"
-	DefaultProfileName		= "default"
+	DefaultProfileName      = "default"
 	LabelKey                = "amd.com/gpu-config-profile"
 	TriggerLabelKey         = "amd.com/apply-gpu-config-profile"
 )

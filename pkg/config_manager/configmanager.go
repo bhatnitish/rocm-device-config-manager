@@ -272,10 +272,10 @@ func paritionGPU(selectedProfile string) {
 	}
 
 	processor_handle := amdSMIHelper()
-	
+
 	existingCompute := getActualGPUComputePartition(processor_handle)
 	fmt.Println("Existing Compute Type", existingCompute)
-	
+
 	if currentCompute == existingCompute {
 		fmt.Printf("Nothing to do, GPU is already in desired compute state %s\nSelected Profile %s\n", currentCompute, selectedProfile)
 		return
@@ -355,8 +355,4 @@ func NodeLabelWatcher() {
 	fmt.Println("Informer is running and synced.")
 	// Keep the function running
 	<-make(chan struct{})
-}
-
-func ValidatePartitionConfig () {
-
 }
