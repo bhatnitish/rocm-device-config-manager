@@ -29,7 +29,7 @@ IMAGE_URL="${DOCKER_REGISTRY}${CONFIGMANAGER_IMAGE}:${VER}"
 
 echo $TOP_DIR
 cp -r $TOP_DIR/assets/amd_smi_lib $TOP_DIR/docker/smilib
-ln -f $TOP_DIR/pkg/config_manager/bin/amd-config-manager $TOP_DIR/docker/amd-config-manager
+ln -f $TOP_DIR/cmd/deviceconfigmanager/bin/amd-config-manager $TOP_DIR/docker/amd-config-manager
 
 docker build -t $IMAGE_URL . -f Dockerfile && docker save -o configmanager-docker-$VER.tar $IMAGE_URL
 if [ $? -eq 0 ]; then

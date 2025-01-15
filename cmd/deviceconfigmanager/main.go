@@ -1,3 +1,4 @@
+
 /*
 Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
 
@@ -13,15 +14,26 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+package main
 
-package globals
-
-const (
-	// config map json path inside k8
-	JsonFilePath            = "/etc/config-manager/config.json"
-	DefaultComputePartition = "SPX"
-	DefaultMemoryPartition  = "NPS1"
-	DefaultProfileName      = "default"
-	LabelKey                = "amd.com/gpu-config-profile"
-	TriggerLabelKey         = "amd.com/apply-gpu-config-profile"
+import (
+	"log"
+	"github.com/pensando/device-config-manager/pkg/config_manager"
 )
+
+func main() {
+
+	//Read profile from node labeller
+	selectedProfile, err := configmanager.GetPartitionProfile()
+	if err != nil {
+		log.Fatalf("err: %+v", err)
+	}
+
+	// starting a seperate go routine for file watcher
+	go configmanager.StartFileWatcher(selectedProfile)
+
+	go configmanager.NodeLabelWatcher()
+
+	// Keep the program running
+	<-make(chan struct{})
+}
