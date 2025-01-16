@@ -43,5 +43,5 @@ message GPUConfigProfile {
 //proto for gpu-config-profiles
 message GPUConfigProfiles {
     // list of all GPUPartitionType to be exported
-    map<string, GPUConfigProfile> Profile = 1;
+    map<string, GPUConfigProfile> Profiles = 1;
 }
