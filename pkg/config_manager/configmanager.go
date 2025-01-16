@@ -30,6 +30,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"time"
 	"unsafe"
 
 	"github.com/fsnotify/fsnotify"
@@ -40,10 +41,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+var kc *k8sclient.K8sClient = k8sclient.NewClient(context.Background())
+
 func GetPartitionProfile() (string, error) {
 
 	var selectedProfile string
-	kc := k8sclient.NewClient(context.Background())
 	nodeName := k8sclient.GetNodeName()
 	if nodeName == "" {
 		err := errors.New("not a k8s deployment")
@@ -239,7 +241,7 @@ func paritionGPU(selectedProfile string) {
 		configmap_exist = true
 	}
 
-	if configmap_exist {		
+	if configmap_exist {
 		var profiles partition_pb.GPUConfigProfiles
 		file, _ := ioutil.ReadFile(globals.JsonFilePath)
 		err := json.Unmarshal(file, &profiles)
@@ -324,7 +326,6 @@ func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
 
 func NodeLabelWatcher() {
 
-	kc := k8sclient.NewClient(context.Background())
 	nodeInformer := kc.GetNodeInformer()
 
 	// Set up event handlers for the node informer
@@ -341,6 +342,14 @@ func NodeLabelWatcher() {
 	// Start the informer
 	stopCh := make(chan struct{})
 	defer close(stopCh)
+
+	go func() {
+		// Creating a timer to prevent blockage of code execution
+		timer := time.NewTimer(100 * time.Second)
+		<-timer.C
+		// Stop the Node Informer after the timer expires
+	}()
+
 	go nodeInformer.Run(stopCh)
 
 	// Wait for the informer to sync
@@ -348,7 +357,7 @@ func NodeLabelWatcher() {
 		log.Fatalf("Failed to sync informers")
 	}
 
-	log.Print("Informer is running and synced.")
+	log.Print("Node Informer started and will run for 100 seconds.")
 	// Keep the function running
 	<-make(chan struct{})
 }
