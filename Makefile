@@ -1,4 +1,5 @@
 TOP_DIR := $(PWD)
+HELM_CHARTS_DIR := $(TOP_DIR)/helm-charts
 
 .PHONY:clean
 clean:
@@ -11,3 +12,11 @@ amddcm:
 
 copyrights:
 	GOFLAGS=-mod=mod go run tools/build/copyright/main.go && ./tools/build/check-local-files.sh
+
+.PHONY: helm-lint
+helm-lint:
+	cd $(HELM_CHARTS_DIR); helm lint
+
+.PHONY: helm-build
+helm-build: helm-lint
+	helm package helm-charts/ --destination ./helm-charts
