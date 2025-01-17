@@ -28,11 +28,14 @@ syntax = "proto3";
 option go_package = "gen/partition"; 
 package partition;
 
-enum GPUPartitionType {
+enum GPUComputePartitionType {
     GPU_COMPUTE_TYPE_PARTITION_SPX      = 0;
     GPU_COMPUTE_TYPE_PARTITION_CPX      = 1;
-    GPU_MEMORY_TYPE_PARTITION_NPS1      = 2;
-    GPU_MEMORY_TYPE_PARTITION_NPS4      = 3;
+}
+
+enum GPUMemoryPartitionType {
+    GPU_MEMORY_TYPE_PARTITION_NPS1      = 0;
+    GPU_MEMORY_TYPE_PARTITION_NPS4      = 1;
 }
 
 message GPUConfigProfile {

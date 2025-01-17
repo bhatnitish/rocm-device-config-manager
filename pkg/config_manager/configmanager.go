@@ -38,6 +38,7 @@ import (
 	"github.com/pensando/device-config-manager/pkg/amdgpu/k8sclient"
 	"github.com/pensando/device-config-manager/pkg/config_manager/globals"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -51,7 +52,7 @@ func GetPartitionProfile() (string, error) {
 		err := errors.New("not a k8s deployment")
 		return "", err
 	}
-	labels, err := kc.GetNodelLabel(nodeName)
+	labels, err := kc.GetNodeLabel(nodeName)
 	if err != nil {
 		return "", err
 	}
@@ -229,9 +230,58 @@ func shutDownAMDSMI() {
 	return
 }
 
+func generatek8event(err error) {
+	k8sPodNamespace := k8sclient.GetPodNameSpace()
+	k8sPodName := k8sclient.GetPodName()
+	currTime := time.Now().UTC()
+	evtObj := &v1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "InvalidProfileInfo",
+			Namespace:    k8sPodNamespace,
+		},
+		FirstTimestamp: metav1.Time{
+			Time: currTime,
+		},
+		LastTimestamp: metav1.Time{
+			Time: currTime,
+		},
+		Count:   1,
+		Type:    v1.EventTypeWarning,
+		Reason:  err.Error(),
+		Message: string(err.Error()),
+		InvolvedObject: v1.ObjectReference{
+			Kind:      "Pod",
+			Namespace: k8sPodNamespace,
+			Name:      k8sPodName,
+		},
+		Source: v1.EventSource{
+			Host:      k8sclient.GetNodeName(),
+			Component: globals.EventSourceComponentName,
+		},
+	}
+	kc.CreateEvent(evtObj)
+}
+
+func checkInvalidPartitionType(partitionType string, validlist []string) error {
+	found := false
+	for _, ctype := range validlist {
+		if ctype == partitionType {
+			found = true
+			break
+		}
+	}
+	if found != true {
+		err := errors.New("not a valid profile")
+		generatek8event(err)
+		return err
+	}
+	return nil
+}
+
 func paritionGPU(selectedProfile string) {
 
 	var currentCompute string
+	var currentMemory string
 	log.Printf("Paritioning the GPU\n")
 	configmap_exist := false
 	if _, err := os.Stat(globals.JsonFilePath); os.IsNotExist(err) {
@@ -254,6 +304,7 @@ func paritionGPU(selectedProfile string) {
 			log.Fatalf("Profile %s not found", selectedProfile)
 		}
 		currentCompute = profile.ComputePartition
+		currentMemory = profile.MemoryPartition
 	} else {
 		profiles := &partition_pb.GPUConfigProfiles{
 			Profiles: make(map[string]*partition_pb.GPUConfigProfile),
@@ -264,6 +315,7 @@ func paritionGPU(selectedProfile string) {
 		}
 		profile := profiles.Profiles[globals.DefaultProfileName]
 		currentCompute = profile.ComputePartition
+		currentMemory = profile.MemoryPartition
 	}
 
 	// Initialize the AMD SMI library for GPU
@@ -280,6 +332,20 @@ func paritionGPU(selectedProfile string) {
 
 	if currentCompute == existingCompute {
 		log.Printf("Nothing to do, GPU is already in desired compute state %s Selected Profile: %s\n", currentCompute, selectedProfile)
+		shutDownAMDSMI()
+		return
+	}
+
+	err := checkInvalidPartitionType(currentCompute, globals.ValidComputePartitions)
+	if err != nil {
+		log.Printf("Invalid compute type %v", currentCompute)
+		shutDownAMDSMI()
+		return
+	}
+
+	err = checkInvalidPartitionType(currentMemory, globals.ValidMemoryPartitions)
+	if err != nil {
+		log.Printf("Invalid memory type %v", currentMemory)
 		shutDownAMDSMI()
 		return
 	}
