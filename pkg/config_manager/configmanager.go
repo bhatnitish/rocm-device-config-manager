@@ -236,7 +236,7 @@ func generatek8event(err error) {
 	currTime := time.Now().UTC()
 	evtObj := &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "InvalidProfileInfo",
+			GenerateName: globals.K8EventPrefixName,
 			Namespace:    k8sPodNamespace,
 		},
 		FirstTimestamp: metav1.Time{
@@ -262,16 +262,24 @@ func generatek8event(err error) {
 	kc.CreateEvent(evtObj)
 }
 
-func checkInvalidPartitionType(partitionType string, validlist []string) error {
-	found := false
+func ValidateList(config string, validlist []string) bool {
 	for _, ctype := range validlist {
-		if ctype == partitionType {
-			found = true
-			break
+		if ctype == config {
+			return true
 		}
 	}
-	if found != true {
-		err := errors.New("not a valid profile")
+	return false
+}
+
+func checkInvalidPartitionType(computeType string, memoryType string) error {
+
+	if !ValidateList(computeType, globals.ValidComputePartitions) {
+		err := errors.New("not a valid profile. Invalid compute type.")
+		generatek8event(err)
+		return err
+	}
+	if !ValidateList(memoryType, globals.ValidMemoryPartitions) {
+		err := errors.New("not a valid profile. Invalid compute type.")
 		generatek8event(err)
 		return err
 	}
@@ -324,6 +332,7 @@ func paritionGPU(selectedProfile string) {
 		log.Print("Failed to initialize AMD SMI!")
 		return
 	}
+	defer shutDownAMDSMI()
 
 	processor_handle := amdSMIHelper()
 
@@ -332,21 +341,12 @@ func paritionGPU(selectedProfile string) {
 
 	if currentCompute == existingCompute {
 		log.Printf("Nothing to do, GPU is already in desired compute state %s Selected Profile: %s\n", currentCompute, selectedProfile)
-		shutDownAMDSMI()
 		return
 	}
 
-	err := checkInvalidPartitionType(currentCompute, globals.ValidComputePartitions)
+	err := checkInvalidPartitionType(currentCompute, currentMemory)
 	if err != nil {
-		log.Printf("Invalid compute type %v", currentCompute)
-		shutDownAMDSMI()
-		return
-	}
-
-	err = checkInvalidPartitionType(currentMemory, globals.ValidMemoryPartitions)
-	if err != nil {
-		log.Printf("Invalid memory type %v", currentMemory)
-		shutDownAMDSMI()
+		log.Printf("Invalid compute type %v memory type %v combination", currentCompute, currentMemory)
 		return
 	}
 
@@ -363,7 +363,6 @@ func paritionGPU(selectedProfile string) {
 		log.Printf("Failed to partition %v \n", ret_n)
 	}
 
-	shutDownAMDSMI()
 	return
 }
 
