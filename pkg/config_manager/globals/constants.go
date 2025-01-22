@@ -24,4 +24,10 @@ const (
 	DefaultProfileName      = "default"
 	LabelKey                = "amd.com/gpu-config-profile"
 	TriggerLabelKey         = "amd.com/apply-gpu-config-profile"
+
+	EventSourceComponentName = "amd-device-config-manager"
+	K8EventPrefixName        = "InvalidProfileInfo-"
 )
+
+var ValidComputePartitions = []string{"SPX", "CPX"}
+var ValidMemoryPartitions = []string{"NPS1", "NPS4"}

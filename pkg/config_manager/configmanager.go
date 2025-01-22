@@ -26,11 +26,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"reflect"
+	"time"
 	"unsafe"
 
 	"github.com/fsnotify/fsnotify"
@@ -38,19 +38,21 @@ import (
 	"github.com/pensando/device-config-manager/pkg/amdgpu/k8sclient"
 	"github.com/pensando/device-config-manager/pkg/config_manager/globals"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
+
+var kc *k8sclient.K8sClient = k8sclient.NewClient(context.Background())
 
 func GetPartitionProfile() (string, error) {
 
 	var selectedProfile string
-	kc := k8sclient.NewClient(context.Background())
 	nodeName := k8sclient.GetNodeName()
 	if nodeName == "" {
 		err := errors.New("not a k8s deployment")
 		return "", err
 	}
-	labels, err := kc.GetNodelLabel(nodeName)
+	labels, err := kc.GetNodeLabel(nodeName)
 	if err != nil {
 		return "", err
 	}
@@ -64,9 +66,9 @@ func GetPartitionProfile() (string, error) {
 			selectedProfile = gpuConfigProfileNodeLabel
 		}
 
-		fmt.Printf("\nSelected profile name: %+v\n", selectedProfile)
+		log.Printf("\nSelected profile name: %+v\n", selectedProfile)
 	} else {
-		fmt.Printf("No labels present on node, unusual\n")
+		log.Printf("No labels present on node, unusual\n")
 	}
 	return selectedProfile, nil
 }
@@ -99,13 +101,13 @@ func StartFileWatcher(selectedProfile string) {
 					return
 				}
 				if event.Has(fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename) {
-					log.Println("Detected changes in config.json, re-reading the file.")
+					log.Print("Detected changes in config.json, re-reading the file.")
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
 				}
-				log.Println("Error:", err)
+				log.Print("Error:", err)
 			}
 		}
 	}()
@@ -142,7 +144,7 @@ func amdsmiGetSocketHandles() ([]C.amdsmi_socket_handle, int) {
 	var socketCount C.uint32_t
 	ret := C.amdsmi_get_socket_handles(&socketCount, nil)
 	if ret != C.AMDSMI_STATUS_SUCCESS {
-		fmt.Println("Failed to get socket count")
+		log.Print("Failed to get socket count")
 		return nil, 0
 	}
 
@@ -152,7 +154,7 @@ func amdsmiGetSocketHandles() ([]C.amdsmi_socket_handle, int) {
 	// get the actual socket handles
 	ret = C.amdsmi_get_socket_handles(&socketCount, &sockets[0])
 	if ret != C.AMDSMI_STATUS_SUCCESS {
-		fmt.Println("Failed to get socket handles")
+		log.Print("Failed to get socket handles")
 		return nil, 0
 	}
 
@@ -164,7 +166,7 @@ func amdsmiGetProcessorHandles(socket C.amdsmi_socket_handle) ([]C.amdsmi_proces
 	var device_count C.uint32_t
 	ret := C.amdsmi_get_processor_handles(socket, &device_count, nil)
 	if ret != C.AMDSMI_STATUS_SUCCESS {
-		fmt.Println("Failed to get device count")
+		log.Print("Failed to get device count")
 		return nil, 0
 	}
 
@@ -173,7 +175,7 @@ func amdsmiGetProcessorHandles(socket C.amdsmi_socket_handle) ([]C.amdsmi_proces
 
 	ret = C.amdsmi_get_processor_handles(socket, &device_count, &processors[0])
 	if ret != C.AMDSMI_STATUS_SUCCESS {
-		fmt.Println("Failed to get processor handles")
+		log.Print("Failed to get processor handles")
 		return nil, 0
 	}
 
@@ -183,7 +185,7 @@ func amdsmiGetProcessorHandles(socket C.amdsmi_socket_handle) ([]C.amdsmi_proces
 
 func amdSMIHelper() C.amdsmi_processor_handle {
 
-	fmt.Println("AMD SMI Initialized successfully.")
+	log.Print("AMD SMI Initialized successfully.")
 	sockets, _ := amdsmiGetSocketHandles()
 	var processor_handles []C.amdsmi_processor_handle
 	var device_count int
@@ -194,10 +196,10 @@ func amdSMIHelper() C.amdsmi_processor_handle {
 			var processor_type C.processor_type_t
 			ret := C.amdsmi_get_processor_type(processor_handles[j], &processor_type)
 			if ret != 0 {
-				fmt.Printf("Error: %d\n", ret)
+				log.Printf("Error: %d\n", ret)
 			}
 			if processor_type != C.AMDSMI_PROCESSOR_TYPE_AMD_GPU {
-				fmt.Println("Expect AMDSMI_PROCESSOR_TYPE_AMD_GPU device type!\n", ret)
+				log.Print("Expect AMDSMI_PROCESSOR_TYPE_AMD_GPU device type!\n", ret)
 			}
 		}
 	}
@@ -210,79 +212,146 @@ func getActualGPUComputePartition(processor_handle C.amdsmi_processor_handle) st
 	computePartition := make([]C.char, len)
 	ret := C.amdsmi_get_gpu_compute_partition(processor_handle, &computePartition[0], len)
 	if ret != C.AMDSMI_STATUS_SUCCESS {
-		fmt.Println("Failed to get compute partition", ret)
+		log.Print("Failed to get compute partition", ret)
 		return ""
 	}
 	cStr := (*C.char)(unsafe.Pointer(&computePartition[0]))
 	return C.GoString(cStr)
 }
 
+func shutDownAMDSMI() {
+	ret := C.amdsmi_shut_down()
+	if ret != C.AMDSMI_STATUS_SUCCESS {
+		log.Print("Failed to shutdown AMD SMI!")
+	} else {
+		log.Printf("AMD SMI shutdown successfully\n")
+	}
+
+	return
+}
+
+func generatek8event(err error) {
+	k8sPodNamespace := k8sclient.GetPodNameSpace()
+	k8sPodName := k8sclient.GetPodName()
+	currTime := time.Now().UTC()
+	evtObj := &v1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: globals.K8EventPrefixName,
+			Namespace:    k8sPodNamespace,
+		},
+		FirstTimestamp: metav1.Time{
+			Time: currTime,
+		},
+		LastTimestamp: metav1.Time{
+			Time: currTime,
+		},
+		Count:   1,
+		Type:    v1.EventTypeWarning,
+		Reason:  err.Error(),
+		Message: string(err.Error()),
+		InvolvedObject: v1.ObjectReference{
+			Kind:      "Pod",
+			Namespace: k8sPodNamespace,
+			Name:      k8sPodName,
+		},
+		Source: v1.EventSource{
+			Host:      k8sclient.GetNodeName(),
+			Component: globals.EventSourceComponentName,
+		},
+	}
+	kc.CreateEvent(evtObj)
+}
+
+func ValidateList(config string, validlist []string) bool {
+	for _, ctype := range validlist {
+		if ctype == config {
+			return true
+		}
+	}
+	return false
+}
+
+func checkInvalidPartitionType(computeType string, memoryType string) error {
+
+	if !ValidateList(computeType, globals.ValidComputePartitions) {
+		err := errors.New("not a valid profile. Invalid compute type.")
+		generatek8event(err)
+		return err
+	}
+	if !ValidateList(memoryType, globals.ValidMemoryPartitions) {
+		err := errors.New("not a valid profile. Invalid compute type.")
+		generatek8event(err)
+		return err
+	}
+	return nil
+}
+
 func paritionGPU(selectedProfile string) {
 
 	var currentCompute string
-	fmt.Printf("Paritioning the GPU\n")
+	var currentMemory string
+	log.Printf("Paritioning the GPU\n")
 	configmap_exist := false
 	if _, err := os.Stat(globals.JsonFilePath); os.IsNotExist(err) {
-		fmt.Printf("failed to read file %v: %v", globals.JsonFilePath, err)
+		log.Printf("ConfigMap not present, using default profile")
 	} else {
-		fmt.Printf("Reading file: %v\n", globals.JsonFilePath)
+		log.Printf("Reading configmap: %v\n", globals.JsonFilePath)
 		configmap_exist = true
 	}
 
-	// Convert the map to the Protobuf structure
-	profiles := &partition_pb.GPUConfigProfiles{
-		Profile: make(map[string]*partition_pb.GPUConfigProfile),
-	}
-
 	if configmap_exist {
-		// Unmarshal the JSON data into a map
-		var data map[string]map[string]map[string]string
+		var profiles partition_pb.GPUConfigProfiles
 		file, _ := ioutil.ReadFile(globals.JsonFilePath)
-		err := json.Unmarshal(file, &data)
+		err := json.Unmarshal(file, &profiles)
 		if err != nil {
 			log.Fatalf("Failed to unmarshal JSON: %v", err)
 		}
 
-		for key, value := range data["gpu-config-profiles"] {
-			profiles.Profile[key] = &partition_pb.GPUConfigProfile{
-				ComputePartition: value["compute-partition"],
-				MemoryPartition:  value["memory-partition"],
-			}
-		}
-
-		profile, exists := profiles.Profile[selectedProfile]
+		profile, exists := profiles.Profiles[selectedProfile]
 		if !exists {
 			log.Fatalf("Profile %s not found", selectedProfile)
 		}
 		currentCompute = profile.ComputePartition
+		currentMemory = profile.MemoryPartition
 	} else {
-		profiles.Profile[globals.DefaultProfileName] = &partition_pb.GPUConfigProfile{
+		profiles := &partition_pb.GPUConfigProfiles{
+			Profiles: make(map[string]*partition_pb.GPUConfigProfile),
+		}
+		profiles.Profiles[globals.DefaultProfileName] = &partition_pb.GPUConfigProfile{
 			ComputePartition: globals.DefaultComputePartition,
 			MemoryPartition:  globals.DefaultMemoryPartition,
 		}
-		profile := profiles.Profile[globals.DefaultProfileName]
+		profile := profiles.Profiles[globals.DefaultProfileName]
 		currentCompute = profile.ComputePartition
+		currentMemory = profile.MemoryPartition
 	}
 
 	// Initialize the AMD SMI library for GPU
 	ret := C.amdsmi_init(C.AMDSMI_INIT_AMD_GPUS)
 	if ret != C.AMDSMI_STATUS_SUCCESS {
-		fmt.Println("Failed to initialize AMD SMI!")
+		log.Print("Failed to initialize AMD SMI!")
 		return
 	}
+	defer shutDownAMDSMI()
 
 	processor_handle := amdSMIHelper()
 
 	existingCompute := getActualGPUComputePartition(processor_handle)
-	fmt.Println("Existing Compute Type", existingCompute)
+	log.Print("Existing Compute Type ", existingCompute)
 
 	if currentCompute == existingCompute {
-		fmt.Printf("Nothing to do, GPU is already in desired compute state %s\nSelected Profile %s\n", currentCompute, selectedProfile)
+		log.Printf("Nothing to do, GPU is already in desired compute state %s Selected Profile: %s\n", currentCompute, selectedProfile)
+		return
+	}
+
+	err := checkInvalidPartitionType(currentCompute, currentMemory)
+	if err != nil {
+		log.Printf("Invalid compute type %v memory type %v combination", currentCompute, currentMemory)
 		return
 	}
 
 	if currentCompute != existingCompute {
-		fmt.Printf("Profile: %s, Updated ComputePartition: %s\n", selectedProfile, currentCompute)
+		log.Printf("Profile: %s, Updated ComputePartition: %s\n", selectedProfile, currentCompute)
 		existingCompute = currentCompute
 	}
 
@@ -291,16 +360,10 @@ func paritionGPU(selectedProfile string) {
 	ret_n := C.amdsmi_set_gpu_compute_partition(processor_handle, computeType)
 
 	if ret_n != C.AMDSMI_STATUS_SUCCESS {
-		fmt.Printf("Failed to partition %v \n", ret_n)
+		log.Printf("Failed to partition %v \n", ret_n)
 	}
 
-	// Initialize the AMD SMI library for GPU
-	ret = C.amdsmi_shut_down()
-	if ret != C.AMDSMI_STATUS_SUCCESS {
-		fmt.Println("Failed to shutdown AMD SMI!")
-	} else {
-		fmt.Printf("Successfully configured compute partition\n")
-	}
+	return
 }
 
 func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
@@ -308,7 +371,7 @@ func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
 	for key, newVal := range newLabels {
 		if key == globals.TriggerLabelKey && newVal != "" {
 			if oldVal, exists := oldLabels[key]; !exists || oldVal != newVal {
-				fmt.Printf("Label changed: %s\nOld value: %s\nNew value: %s\n", key, oldVal, newVal)
+				log.Printf("Label changed: %s\nOld value: %s\nNew value: %s\n", key, oldVal, newVal)
 				selectedProfile, err := GetPartitionProfile()
 				if err != nil {
 					log.Fatalf("err: %+v", err)
@@ -321,14 +384,13 @@ func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
 	// Check for removed labels
 	for key, oldVal := range oldLabels {
 		if _, exists := newLabels[key]; !exists {
-			fmt.Printf("Label removed: %s\nOld value: %s\n", key, oldVal)
+			log.Printf("Label removed: %s\nOld value: %s\n", key, oldVal)
 		}
 	}
 }
 
 func NodeLabelWatcher() {
 
-	kc := k8sclient.NewClient(context.Background())
 	nodeInformer := kc.GetNodeInformer()
 
 	// Set up event handlers for the node informer
@@ -345,6 +407,14 @@ func NodeLabelWatcher() {
 	// Start the informer
 	stopCh := make(chan struct{})
 	defer close(stopCh)
+
+	go func() {
+		// Creating a timer to prevent blockage of code execution
+		timer := time.NewTimer(100 * time.Second)
+		<-timer.C
+		// Stop the Node Informer after the timer expires
+	}()
+
 	go nodeInformer.Run(stopCh)
 
 	// Wait for the informer to sync
@@ -352,7 +422,7 @@ func NodeLabelWatcher() {
 		log.Fatalf("Failed to sync informers")
 	}
 
-	fmt.Println("Informer is running and synced.")
+	log.Print("Node Informer started and will run for 100 seconds.")
 	// Keep the function running
 	<-make(chan struct{})
 }

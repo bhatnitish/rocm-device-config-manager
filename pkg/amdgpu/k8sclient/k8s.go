@@ -19,9 +19,11 @@ package k8sclient
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -41,13 +43,13 @@ func (k *K8sClient) init() error {
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		fmt.Printf("k8s cluster config error %v", err)
+		log.Printf("k8s cluster config error %v", err)
 		return err
 	}
 	// creates the clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		fmt.Printf("clientset from config failed %v", err)
+		log.Printf("clientset from config failed %v", err)
 		return err
 	}
 
@@ -75,7 +77,21 @@ func GetNodeName() string {
 	return ""
 }
 
-func (k *K8sClient) GetNodelLabel(nodeName string) (map[string]string, error) {
+func GetPodName() string {
+	if os.Getenv("POD_NAME") != "" {
+		return os.Getenv("POD_NAME")
+	}
+	return ""
+}
+
+func GetPodNameSpace() string {
+	if os.Getenv("POD_NAMESPACE") != "" {
+		return os.Getenv("POD_NAMESPACE")
+	}
+	return ""
+}
+
+func (k *K8sClient) GetNodeLabel(nodeName string) (map[string]string, error) {
 	k.reConnect()
 	k.Lock()
 	defer k.Unlock()
@@ -84,8 +100,7 @@ func (k *K8sClient) GetNodelLabel(nodeName string) (map[string]string, error) {
 
 	node, err := k.clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
-		fmt.Printf("k8s internal node get failed %v", err)
-		k.clientset = nil
+		log.Printf("k8s internal node get failed %v", err)
 		return make(map[string]string), err
 	}
 	return node.Labels, nil
@@ -103,4 +118,24 @@ func (k *K8sClient) GetNodeInformer() cache.SharedIndexInformer {
 	nodeInformer := factory.Core().V1().Nodes().Informer()
 
 	return nodeInformer
+}
+
+func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
+	k.reConnect()
+	k.Lock()
+	defer k.Unlock()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if evtObj == nil {
+		log.Printf("k8s client got empty event object, skip genreating k8s event")
+		return fmt.Errorf("k8s client received empty event object")
+	}
+
+	if _, err := k.clientset.CoreV1().Events(evtObj.Namespace).Create(ctx, evtObj, metav1.CreateOptions{}); err != nil {
+		log.Printf("failed to generate event %+v, err: %+v", evtObj, err)
+		return err
+	}
+
+	return nil
 }
