@@ -1,0 +1,14 @@
+platform: k8s
+
+nodeSelector: {}
+
+image:
+  repository: registry.test.pensando.io:5000/device-config-manager/conf_manager
+  tag: v1
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 80
+
+configMap: ""
