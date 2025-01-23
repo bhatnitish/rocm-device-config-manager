@@ -73,6 +73,14 @@ func GetPartitionProfile() (string, error) {
 	return selectedProfile, nil
 }
 
+func checkDaemonSetCount() bool {
+	// list all daemon sets and check for ME, NL, TR,
+	log.Print("DaemonSets in the cluster:")
+	daemonsetlist, partition_alert := kc.GetDaemonSets()
+	log.Printf("daemonsetlist %v, partitionalert %v\n", daemonsetlist, partition_alert)
+	return partition_alert
+}
+
 func StartFileWatcher(selectedProfile string) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -80,6 +88,10 @@ func StartFileWatcher(selectedProfile string) {
 	}
 	defer watcher.Close()
 
+	if checkDaemonSetCount() {
+		log.Printf("Cannot partition GPU, please taint the node and then continue")
+		return
+	}
 	// Initial read
 	paritionGPU(selectedProfile)
 

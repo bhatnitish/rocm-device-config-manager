@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -138,4 +139,36 @@ func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
 	}
 
 	return nil
+}
+
+func (k *K8sClient) GetDaemonSets() ([]string, bool) {
+	k.reConnect()
+	k.Lock()
+	defer k.Unlock()
+	ctx, cancel := context.WithCancel(k.ctx)
+	defer cancel()
+
+	daemonsetlist := make([]string, 0)
+	partition_alert := false
+	gpuoperator_ds := 0
+	daemonSets, err := k.clientset.AppsV1().DaemonSets(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+
+	if err != nil {
+		fmt.Printf("k8s internal daemonset get failed %v", err)
+		return daemonsetlist, partition_alert
+	}
+
+	for _, ds := range daemonSets.Items {
+		fmt.Printf("- %s\n", ds.Name)
+		daemonsetlist = append(daemonsetlist, ds.Name)
+		if strings.Contains(ds.Name, "test-deviceconfig") {
+			gpuoperator_ds = gpuoperator_ds + 1
+		}
+	}
+
+	if gpuoperator_ds >= 2 {
+		partition_alert = true
+	}
+
+	return daemonsetlist, partition_alert
 }
