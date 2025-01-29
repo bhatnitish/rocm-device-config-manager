@@ -4,7 +4,7 @@ Users will provide the GPU configurations using a K8s config-map. The config-map
 
 # Steps for partitioning using config map
 
-_Kubernets Node labels for health monitor_
+_Kubernets Node labels for GPU partitioning_
 ```
 amd.com/gpu-config-profile=<profile_name>
 amd.com/apply-gpu-config-profile=<any_string>
