@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pensando/device-config-manager/pkg/config_manager/globals"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
@@ -150,7 +151,7 @@ func (k *K8sClient) GetDaemonSets() ([]string, bool) {
 
 	daemonsetlist := make([]string, 0)
 	partition_alert := false
-	gpuoperator_ds := 0
+	daemonset_count := 0
 	daemonSets, err := k.clientset.AppsV1().DaemonSets(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 
 	if err != nil {
@@ -162,11 +163,11 @@ func (k *K8sClient) GetDaemonSets() ([]string, bool) {
 		fmt.Printf("- %s\n", ds.Name)
 		daemonsetlist = append(daemonsetlist, ds.Name)
 		if strings.Contains(ds.Name, "test-deviceconfig") {
-			gpuoperator_ds = gpuoperator_ds + 1
+			daemonset_count = daemonset_count + 1
 		}
 	}
 
-	if gpuoperator_ds >= 2 {
+	if daemonset_count > globals.MAX_DAEMONSETS_ALLOWED {
 		partition_alert = true
 	}
 

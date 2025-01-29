@@ -27,7 +27,12 @@ const (
 
 	EventSourceComponentName = "amd-device-config-manager"
 	K8EventPrefixName        = "InvalidProfileInfo-"
+	K8EventNoPartition       = "NodeNotTaintedBeforeParition-"
 	Namespace                = "kube-amd-gpu"
+)
+
+const (
+	MAX_DAEMONSETS_ALLOWED = 1
 )
 
 var ValidComputePartitions = []string{"SPX", "CPX"}

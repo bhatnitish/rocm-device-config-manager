@@ -90,6 +90,8 @@ func StartFileWatcher(selectedProfile string) {
 
 	if checkDaemonSetCount() {
 		log.Printf("Cannot partition GPU, please taint the node and then continue")
+		err := errors.New("Taint node and then partition.")
+		generatek8sevent(err, globals.K8EventNoPartition)
 		return
 	}
 	// Initial read
@@ -242,13 +244,13 @@ func shutDownAMDSMI() {
 	return
 }
 
-func generatek8event(err error) {
+func generatek8sevent(err error, event_n string) {
 	k8sPodNamespace := k8sclient.GetPodNameSpace()
 	k8sPodName := k8sclient.GetPodName()
 	currTime := time.Now().UTC()
 	evtObj := &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: globals.K8EventPrefixName,
+			GenerateName: string(event_n),
 			Namespace:    k8sPodNamespace,
 		},
 		FirstTimestamp: metav1.Time{
@@ -287,12 +289,12 @@ func checkInvalidPartitionType(computeType string, memoryType string) error {
 
 	if !ValidateList(computeType, globals.ValidComputePartitions) {
 		err := errors.New("not a valid profile. Invalid compute type.")
-		generatek8event(err)
+		generatek8sevent(err, globals.K8EventPrefixName)
 		return err
 	}
 	if !ValidateList(memoryType, globals.ValidMemoryPartitions) {
 		err := errors.New("not a valid profile. Invalid compute type.")
-		generatek8event(err)
+		generatek8sevent(err, globals.K8EventPrefixName)
 		return err
 	}
 	return nil
