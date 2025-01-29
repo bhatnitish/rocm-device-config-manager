@@ -38,7 +38,7 @@ amd.com/apply-gpu-config-profile=<any_string>
     make docker
     ```
 
-# PARTITION GPU
+### PARTITION GPU
 -  GPU on the node cannot be partitioned on the go, we need to bring down all daemonsets before partitioning. Hence we need to taint the node and add a toleration only to DCM node.
 -  TAINT the node where you want to partition the GPU.
 kubectl taint nodes asrock-126-b3-3b dcm=up:NoExecute
@@ -56,8 +56,13 @@ tolerations:
         effect: "NoExecute"
 amd@asrock-126-b3-3b:~$ kubectl apply -f nfd.yaml
 ```
+-  Create a CR to bring up the DCM daemonset along with the toleration for the taint
+-  Taint the node
+```
+kubectl taint nodes asrock-126-b3-3b dcm=up:NoExecute
+```
 
-# Untaint
+### Untaint
 ```
 kubectl taint nodes asrock-126-b3-3b dcm:NoExecute-
 ```
