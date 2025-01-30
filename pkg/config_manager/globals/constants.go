@@ -22,13 +22,12 @@ const (
 	DefaultComputePartition = "SPX"
 	DefaultMemoryPartition  = "NPS1"
 	DefaultProfileName      = "default"
-	LabelKey                = "amd.com/gpu-config-profile"
-	TriggerLabelKey         = "amd.com/apply-gpu-config-profile"
+	LabelKey                = "dcm.amd.com/gpu-config-profile"
+	TriggerLabelKey         = "dcm.amd.com/apply-gpu-config-profile"
 
 	EventSourceComponentName = "amd-device-config-manager"
 	K8EventPrefixName        = "InvalidProfileInfo-"
 	K8EventNoPartition       = "NodeNotTaintedBeforeParition-"
-	Namespace                = "kube-amd-gpu"
 )
 
 const (

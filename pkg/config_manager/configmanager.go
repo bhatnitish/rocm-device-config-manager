@@ -73,7 +73,7 @@ func GetPartitionProfile() (string, error) {
 	return selectedProfile, nil
 }
 
-func checkDaemonSetCount() bool {
+func partitionPreCheck() bool {
 	// list all daemon sets and check for ME, NL, TR,
 	log.Print("DaemonSets in the cluster:")
 	daemonsetlist, partition_alert := kc.GetDaemonSets()
@@ -88,12 +88,6 @@ func StartFileWatcher(selectedProfile string) {
 	}
 	defer watcher.Close()
 
-	if checkDaemonSetCount() {
-		log.Printf("Cannot partition GPU, please taint the node and then continue")
-		err := errors.New("Taint node and then partition.")
-		generatek8sevent(err, globals.K8EventNoPartition)
-		return
-	}
 	// Initial read
 	paritionGPU(selectedProfile)
 
@@ -301,6 +295,13 @@ func checkInvalidPartitionType(computeType string, memoryType string) error {
 }
 
 func paritionGPU(selectedProfile string) {
+
+	if partitionPreCheck() {
+		log.Printf("Cannot partition GPU, please taint the node and then continue")
+		err := errors.New("Taint node and then partition.")
+		generatek8sevent(err, globals.K8EventNoPartition)
+		return
+	}
 
 	var currentCompute string
 	var currentMemory string

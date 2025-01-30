@@ -162,8 +162,11 @@ func (k *K8sClient) GetDaemonSets() ([]string, bool) {
 	for _, ds := range daemonSets.Items {
 		fmt.Printf("- %s\n", ds.Name)
 		daemonsetlist = append(daemonsetlist, ds.Name)
-		if strings.Contains(ds.Name, "test-deviceconfig") {
-			daemonset_count = daemonset_count + 1
+		for key, value := range ds.Spec.Selector.MatchLabels {
+			if strings.Contains(key, "daemonset-name") && strings.Contains(value, "test-deviceconfig") {
+				daemonset_count = daemonset_count + 1
+				break
+			}
 		}
 	}
 
