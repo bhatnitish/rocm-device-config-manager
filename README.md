@@ -1,13 +1,13 @@
 # device-config-manager
-Device config manager is a component of the GPU Operator which is used to handle AMD Devices' configuration. To begin with, we will be handling the GPU partitioning configurations, but it will be flexible to support any kind of GPU configurations (or AINIC configurations) in the future.
+Device config manager(DCM) is a component of the GPU Operator which is used to handle AMD Devices' configuration. To begin with, we will be handling the GPU partitioning configurations, but it will be flexible to support any kind of GPU configurations (or AINIC configurations) in the future.
 Users will provide the GPU configurations using a K8s config-map. The config-map will be associated with the DCM daemonset.
 
 # Steps for partitioning using config map
 
 _Kubernets Node labels for GPU partitioning_
 ```
-amd.com/gpu-config-profile=<profile_name>
-amd.com/apply-gpu-config-profile=<any_string>
+dcm.amd.com/gpu-config-profile=<profile_name>
+dcm.amd.com/apply-gpu-config-profile=<any_string>
 ```
 
 -  Create a config map and apply it on the node.
@@ -66,3 +66,7 @@ kubectl taint nodes asrock-126-b3-3b dcm=up:NoExecute
 ```
 kubectl taint nodes asrock-126-b3-3b dcm:NoExecute-
 ```
+
+### ConfigMap
+
+- Please find an example config map in [_example/configmap.yaml_](https://github.com/pensando/device-config-manager/blob/main/example/configmap.yaml#L1)
