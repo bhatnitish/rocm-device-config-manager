@@ -3,13 +3,36 @@
     {
         "default":
         {
-            "compute-partition": "SPX", 
-            "memory-partition": "NPS1" 
+            "devicefilter": {
+                "ids": [0, 1, 2],
+                "product_name": ["MI300", "MI250"]
+            },
+            "devices": [
+                {
+                    "compute-partition": "CPX", 
+                    "memory-partition": "NPS1",
+                    "numberofdevices": 2
+                },
+                {
+                    "compute-partition": "QPX", 
+                    "memory-partition": "NPS1",
+                    "numberofdevices": 3
+                }
+            ]
         },
         "profile-1":
         { 
-            "compute-partition": "CPX", 
-            "memory-partition": "NPS1" 
+            "deviceFilter": {
+                "ids": [0, 1, 2],
+                "product_name": ["MI300", "MI250"]
+            },
+            "devices": [
+                {
+                    "compute-partition": "CPX", 
+                    "memory-partition": "NPS1",
+                    "numberofdevices": 8
+                }          
+            ]
         }
     }
 }

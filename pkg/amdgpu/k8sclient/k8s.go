@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/fields"
 )
 
 type K8sClient struct {
@@ -155,12 +156,12 @@ func (k *K8sClient) GetDaemonSets() ([]string, bool) {
 	daemonSets, err := k.clientset.AppsV1().DaemonSets(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 
 	if err != nil {
-		fmt.Printf("k8s internal daemonset get failed %v", err)
+		log.Printf("k8s internal daemonset get failed %v", err)
 		return daemonsetlist, partition_alert
 	}
 
 	for _, ds := range daemonSets.Items {
-		fmt.Printf("- %s\n", ds.Name)
+		log.Printf("- %s\n", ds.Name)
 		daemonsetlist = append(daemonsetlist, ds.Name)
 		for key, value := range ds.Spec.Selector.MatchLabels {
 			if strings.Contains(key, "daemonset-name") && strings.Contains(value, "test-deviceconfig") {
@@ -175,4 +176,54 @@ func (k *K8sClient) GetDaemonSets() ([]string, bool) {
 	}
 
 	return daemonsetlist, partition_alert
+}
+
+// func CheckGpuLabel(rl v1.ResourceList) bool {
+// 	s, ok := rl["amd.com/gpu"]
+// 	if !ok {
+// 		return false
+// 	}
+
+// 	if s.String() == "0" {
+// 		return false
+// 	}
+// 	return true
+// }
+
+func (k *K8sClient) GetPodsToDrainOrDelete() (bool, error) {
+	k.reConnect()
+	k.Lock()
+	defer k.Unlock()
+	ctx, cancel := context.WithCancel(k.ctx)
+	defer cancel()
+
+	gpuPods := 0
+	options := metav1.ListOptions{
+		FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": GetNodeName()}).String(),
+	}
+	pods, err := k.clientset.CoreV1().Pods(metav1.NamespaceAll).List(ctx, options)
+
+	if err != nil {
+		return false, err
+	}
+
+	for _, pod := range pods.Items {
+		// log.Printf("Pod name: %s\n", pod.Name)
+		for _, container := range pod.Spec.Containers {
+			// log.Printf("Container name: %s\n", container.Name)
+			if _, ok := container.Resources.Requests["amd.com/gpu"]; ok {
+				// log.Printf("CONTAINER has GPU resource %v\n", container)
+				// we need to check per pod level, hence break after any container
+				// of the pod is requesting a gpu
+				gpuPods = gpuPods + 1
+				break
+			}
+		}
+	}
+
+	if gpuPods > globals.MAX_DAEMONSETS_ALLOWED {
+		return true, nil
+	}
+
+	return false, nil
 }

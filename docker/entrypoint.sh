@@ -19,7 +19,7 @@ set -euo pipefail
 #
 # entry point script run on creating a node management container
 
-LD_LIBRARY_PATH=/opt/rocm-6.3.0/lib &
+LD_LIBRARY_PATH=/opt/rocm-6.4.0/lib &
 # sleep
 sleep 10
 LD_LIBRARY_PATH=/home/amd/lib/ &

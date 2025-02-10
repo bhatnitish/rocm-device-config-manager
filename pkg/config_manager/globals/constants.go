@@ -19,7 +19,7 @@ package globals
 const (
 	// config map json path inside k8
 	JsonFilePath            = "/etc/config-manager/config.json"
-	DefaultComputePartition = "SPX"
+	DefaultComputePartition = "DPX"
 	DefaultMemoryPartition  = "NPS1"
 	DefaultProfileName      = "default"
 	LabelKey                = "dcm.amd.com/gpu-config-profile"
@@ -34,5 +34,5 @@ const (
 	MAX_DAEMONSETS_ALLOWED = 1
 )
 
-var ValidComputePartitions = []string{"SPX", "CPX"}
+var ValidComputePartitions = []string{"SPX", "CPX", "DPX"}
 var ValidMemoryPartitions = []string{"NPS1", "NPS4"}
