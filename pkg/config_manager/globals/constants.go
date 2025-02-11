@@ -34,5 +34,5 @@ const (
 	MAX_DAEMONSETS_ALLOWED = 1
 )
 
-var ValidComputePartitions = []string{"SPX", "CPX", "DPX"}
+var ValidComputePartitions = []string{"SPX", "CPX", "DPX", "QPX"}
 var ValidMemoryPartitions = []string{"NPS1", "NPS4"}
