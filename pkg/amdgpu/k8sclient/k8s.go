@@ -140,7 +140,7 @@ func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
 	return nil
 }
 
-func (k *K8sClient) GetDaemonSets() ([]string) {
+func (k *K8sClient) GetDaemonSets() []string {
 	k.reConnect()
 	k.Lock()
 	defer k.Unlock()
@@ -161,4 +161,3 @@ func (k *K8sClient) GetDaemonSets() ([]string) {
 
 	return daemonsetlist
 }
-

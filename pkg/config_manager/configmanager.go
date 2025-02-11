@@ -33,11 +33,11 @@ import (
 	"time"
 	"unsafe"
 
-	log_e "github.com/sirupsen/logrus"
 	"github.com/fsnotify/fsnotify"
 	partition_pb "github.com/pensando/device-config-manager/gen/partition"
 	"github.com/pensando/device-config-manager/pkg/amdgpu/k8sclient"
 	"github.com/pensando/device-config-manager/pkg/config_manager/globals"
+	log_e "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -189,20 +189,20 @@ func amdsmiGetProcessorHandles(socket C.amdsmi_socket_handle) ([]C.amdsmi_proces
 }
 
 func createGPUIDList(filter_ids []uint32, totalGPUCount int) []int {
-    result := []int{}
-	outer:
-		for i := 0; i < totalGPUCount; i++ {
-			for fID := range filter_ids {
-				if int(fID) == i {
-					continue outer
-				}
+	result := []int{}
+outer:
+	for i := 0; i < totalGPUCount; i++ {
+		for fID := range filter_ids {
+			if int(fID) == i {
+				continue outer
 			}
-			result = append(result, i)
 		}
+		result = append(result, i)
+	}
 	return result
 }
 
-func validateProfile(profile *partition_pb.GPUConfigProfile, totalGPUCount int) (error) {
+func validateProfile(profile *partition_pb.GPUConfigProfile, totalGPUCount int) error {
 	devices_conf_count := len(profile.Profiles)
 	devices := profile.Profiles
 	total_devices := 0
@@ -272,10 +272,10 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 		currentCompute := devices[i].ComputePartition
 		currentMemory := devices[i].MemoryPartition
 		nod := devices[i].NumberofDevices
-		for j :=0; j < int(nod); j++ {
+		for j := 0; j < int(nod); j++ {
 			log.Printf("Partitioning GPU ID %d with compute partition %v and memory partition %v", gpu_ids_list[idx], currentCompute, currentMemory)
 			processor_handles, device_count = amdsmiGetProcessorHandles(sockets[gpu_ids_list[idx]])
-			log.Printf("Device count for GPU ID %d : %d", gpu_ids_list[idx] ,device_count)
+			log.Printf("Device count for GPU ID %d : %d", gpu_ids_list[idx], device_count)
 			idx = idx + 1
 			processor_handle := processor_handles[0]
 			var processor_type C.processor_type_t
@@ -424,14 +424,14 @@ func partitionGPU(selectedProfile string) {
 			Id:          []uint32{},
 			ProductName: []string{},
 		}
-	
+
 		profiles := []*partition_pb.ProfileConfig{
 			{
 				ComputePartition: globals.DefaultComputePartition,
 				MemoryPartition:  globals.DefaultMemoryPartition,
 			},
 		}
-	
+
 		profile = &partition_pb.GPUConfigProfile{
 			Filters:  skippedGPUs,
 			Profiles: profiles,
