@@ -3,11 +3,11 @@
     {
         "default":
         {
-            "devicefilter": {
+            "skippedGPUs": {
                 "ids": [0, 1, 2],
                 "product_name": ["MI300", "MI250"]
             },
-            "devices": [
+            "profiles": [
                 {
                     "compute-partition": "CPX", 
                     "memory-partition": "NPS1",
@@ -22,16 +22,16 @@
         },
         "profile-1":
         { 
-            "deviceFilter": {
+            "skippedGPUs": {
                 "ids": [0, 1, 2],
                 "product_name": ["MI300", "MI250"]
             },
-            "devices": [
+            "profiles": [
                 {
                     "compute-partition": "CPX", 
                     "memory-partition": "NPS1",
                     "numberofdevices": 8
-                }          
+                }
             ]
         }
     }

@@ -38,24 +38,24 @@ enum GPUMemoryPartitionType {
     GPU_MEMORY_TYPE_PARTITION_NPS4      = 1;
 }
 
-message DeviceConfig {
+message ProfileConfig {
     string ComputePartition = 1;
     string MemoryPartition  = 2;
     uint32 NumberofDevices  = 3;
 }
 
-message DeviceFilters {
+message SkippedGPUs {
     repeated uint32 Id = 1;
     repeated string ProductName = 2;
 }
 
 message GPUConfigProfile {
-    DeviceFilters Filters = 1;
-    repeated DeviceConfig Devices = 2;
+    SkippedGPUs Filters = 1;
+    repeated ProfileConfig Profiles = 2;
 }
 
 //proto for gpu-config-profiles
 message GPUConfigProfiles {
     // list of all GPUPartitionType to be exported
-    map<string, GPUConfigProfile> Profiles = 1;
+    map<string, GPUConfigProfile> ProfilesList = 1;
 }

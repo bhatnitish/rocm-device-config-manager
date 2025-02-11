@@ -21,17 +21,14 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"sync"
 
-	"github.com/pensando/device-config-manager/pkg/config_manager/globals"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/apimachinery/pkg/fields"
 )
 
 type K8sClient struct {
@@ -143,7 +140,7 @@ func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
 	return nil
 }
 
-func (k *K8sClient) GetDaemonSets() ([]string, bool) {
+func (k *K8sClient) GetDaemonSets() ([]string) {
 	k.reConnect()
 	k.Lock()
 	defer k.Unlock()
@@ -151,79 +148,17 @@ func (k *K8sClient) GetDaemonSets() ([]string, bool) {
 	defer cancel()
 
 	daemonsetlist := make([]string, 0)
-	partition_alert := false
-	daemonset_count := 0
 	daemonSets, err := k.clientset.AppsV1().DaemonSets(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 
 	if err != nil {
 		log.Printf("k8s internal daemonset get failed %v", err)
-		return daemonsetlist, partition_alert
+		return daemonsetlist
 	}
 
 	for _, ds := range daemonSets.Items {
-		log.Printf("- %s\n", ds.Name)
 		daemonsetlist = append(daemonsetlist, ds.Name)
-		for key, value := range ds.Spec.Selector.MatchLabels {
-			if strings.Contains(key, "daemonset-name") && strings.Contains(value, "test-deviceconfig") {
-				daemonset_count = daemonset_count + 1
-				break
-			}
-		}
 	}
 
-	if daemonset_count > globals.MAX_DAEMONSETS_ALLOWED {
-		partition_alert = true
-	}
-
-	return daemonsetlist, partition_alert
+	return daemonsetlist
 }
 
-// func CheckGpuLabel(rl v1.ResourceList) bool {
-// 	s, ok := rl["amd.com/gpu"]
-// 	if !ok {
-// 		return false
-// 	}
-
-// 	if s.String() == "0" {
-// 		return false
-// 	}
-// 	return true
-// }
-
-func (k *K8sClient) GetPodsToDrainOrDelete() (bool, error) {
-	k.reConnect()
-	k.Lock()
-	defer k.Unlock()
-	ctx, cancel := context.WithCancel(k.ctx)
-	defer cancel()
-
-	gpuPods := 0
-	options := metav1.ListOptions{
-		FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": GetNodeName()}).String(),
-	}
-	pods, err := k.clientset.CoreV1().Pods(metav1.NamespaceAll).List(ctx, options)
-
-	if err != nil {
-		return false, err
-	}
-
-	for _, pod := range pods.Items {
-		// log.Printf("Pod name: %s\n", pod.Name)
-		for _, container := range pod.Spec.Containers {
-			// log.Printf("Container name: %s\n", container.Name)
-			if _, ok := container.Resources.Requests["amd.com/gpu"]; ok {
-				// log.Printf("CONTAINER has GPU resource %v\n", container)
-				// we need to check per pod level, hence break after any container
-				// of the pod is requesting a gpu
-				gpuPods = gpuPods + 1
-				break
-			}
-		}
-	}
-
-	if gpuPods > globals.MAX_DAEMONSETS_ALLOWED {
-		return true, nil
-	}
-
-	return false, nil
-}
