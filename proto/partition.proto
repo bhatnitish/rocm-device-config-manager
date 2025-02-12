@@ -30,7 +30,9 @@ package partition;
 
 enum GPUComputePartitionType {
     GPU_COMPUTE_TYPE_PARTITION_SPX      = 0;
-    GPU_COMPUTE_TYPE_PARTITION_CPX      = 1;
+    GPU_COMPUTE_TYPE_PARTITION_DPX      = 1;
+    GPU_COMPUTE_TYPE_PARTITION_QPX      = 2;
+    GPU_COMPUTE_TYPE_PARTITION_CPX      = 3;
 }
 
 enum GPUMemoryPartitionType {
@@ -41,12 +43,11 @@ enum GPUMemoryPartitionType {
 message ProfileConfig {
     string ComputePartition = 1;
     string MemoryPartition  = 2;
-    uint32 NumberofDevices  = 3;
+    uint32 NumGPUsAssigned  = 3;
 }
 
 message SkippedGPUs {
     repeated uint32 Id = 1;
-    repeated string ProductName = 2;
 }
 
 message GPUConfigProfile {

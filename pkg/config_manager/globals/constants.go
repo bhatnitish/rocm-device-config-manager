@@ -28,10 +28,7 @@ const (
 	EventSourceComponentName = "amd-device-config-manager"
 	K8EventPrefixName        = "InvalidProfileInfo-"
 	K8EventNoPartition       = "NodeNotTaintedBeforeParition-"
-)
-
-const (
-	MAX_DAEMONSETS_ALLOWED = 1
+	K8EventInvalidProfile    = "InvalidProfileInfo-"
 )
 
 var ValidComputePartitions = []string{"SPX", "CPX", "DPX", "QPX"}

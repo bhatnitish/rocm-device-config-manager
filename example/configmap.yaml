@@ -11,28 +11,26 @@ data:
           "default":
           {
               "skippedGPUs": {
-                  "ids": [],
-                  "product_name": ["MI300", "MI250"]
+                  "ids": []
               },
               "profiles": [
                   {
-                      "compute-partition": "CPX", 
-                      "memory-partition": "NPS1",
-                      "numberofdevices": 1
+                      "computePartition": "CPX", 
+                      "memoryPartition": "NPS1",
+                      "numGPUsAssigned": 1
                   }
               ]
           },
           "profile-1":
           { 
-              "deviceFilter": {
-                  "ids": [0, 1, 2],
-                  "product_name": ["MI300", "MI250"]
+              "skippedGPUs": {
+                  "ids": [0, 1, 2]
               },
               "profiles": [
                   {
-                      "compute-partition": "CPX",
-                      "memory-partition": "NPS1",
-                      "numberofdevices": 8
+                      "computePartition": "CPX",
+                      "memoryPartition": "NPS1",
+                      "numGPUsAssigned": 8
                   }          
               ]
           }
