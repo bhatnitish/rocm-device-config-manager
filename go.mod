@@ -7,7 +7,7 @@ toolchain go1.23.4
 require (
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/prometheus/client_golang v1.20.3
-	google.golang.org/protobuf v1.35.1
+	google.golang.org/protobuf v1.36.5
 	k8s.io/apimachinery v0.32.0
 	k8s.io/client-go v0.32.0
 )
@@ -39,6 +39,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/net v0.30.0 // indirect

@@ -139,3 +139,25 @@ func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
 
 	return nil
 }
+
+func (k *K8sClient) GetDaemonSets() []string {
+	k.reConnect()
+	k.Lock()
+	defer k.Unlock()
+	ctx, cancel := context.WithCancel(k.ctx)
+	defer cancel()
+
+	daemonsetlist := make([]string, 0)
+	daemonSets, err := k.clientset.AppsV1().DaemonSets(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+
+	if err != nil {
+		log.Printf("k8s internal daemonset get failed %v", err)
+		return daemonsetlist
+	}
+
+	for _, ds := range daemonSets.Items {
+		daemonsetlist = append(daemonsetlist, ds.Name)
+	}
+
+	return daemonsetlist
+}

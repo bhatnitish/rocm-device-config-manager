@@ -22,12 +22,14 @@ const (
 	DefaultComputePartition = "SPX"
 	DefaultMemoryPartition  = "NPS1"
 	DefaultProfileName      = "default"
-	LabelKey                = "amd.com/gpu-config-profile"
-	TriggerLabelKey         = "amd.com/apply-gpu-config-profile"
+	LabelKey                = "dcm.amd.com/gpu-config-profile"
+	TriggerLabelKey         = "dcm.amd.com/apply-gpu-config-profile"
 
 	EventSourceComponentName = "amd-device-config-manager"
 	K8EventPrefixName        = "InvalidProfileInfo-"
+	K8EventNoPartition       = "NodeNotTaintedBeforeParition-"
+	K8EventInvalidProfile    = "InvalidProfileInfo-"
 )
 
-var ValidComputePartitions = []string{"SPX", "CPX"}
+var ValidComputePartitions = []string{"SPX", "CPX", "DPX", "QPX"}
 var ValidMemoryPartitions = []string{"NPS1", "NPS4"}

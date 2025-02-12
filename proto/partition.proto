@@ -30,7 +30,9 @@ package partition;
 
 enum GPUComputePartitionType {
     GPU_COMPUTE_TYPE_PARTITION_SPX      = 0;
-    GPU_COMPUTE_TYPE_PARTITION_CPX      = 1;
+    GPU_COMPUTE_TYPE_PARTITION_DPX      = 1;
+    GPU_COMPUTE_TYPE_PARTITION_QPX      = 2;
+    GPU_COMPUTE_TYPE_PARTITION_CPX      = 3;
 }
 
 enum GPUMemoryPartitionType {
@@ -38,13 +40,23 @@ enum GPUMemoryPartitionType {
     GPU_MEMORY_TYPE_PARTITION_NPS4      = 1;
 }
 
-message GPUConfigProfile {
+message ProfileConfig {
     string ComputePartition = 1;
     string MemoryPartition  = 2;
+    uint32 NumGPUsAssigned  = 3;
+}
+
+message SkippedGPUs {
+    repeated uint32 Id = 1;
+}
+
+message GPUConfigProfile {
+    SkippedGPUs Filters = 1;
+    repeated ProfileConfig Profiles = 2;
 }
 
 //proto for gpu-config-profiles
 message GPUConfigProfiles {
     // list of all GPUPartitionType to be exported
-    map<string, GPUConfigProfile> Profiles = 1;
+    map<string, GPUConfigProfile> ProfilesList = 1;
 }
