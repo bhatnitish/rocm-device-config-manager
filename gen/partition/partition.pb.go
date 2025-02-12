@@ -205,7 +205,7 @@ func (x *ProfileConfig) GetNumGPUsAssigned() uint32 {
 
 type SkippedGPUs struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            []uint32               `protobuf:"varint,1,rep,packed,name=Id,proto3" json:"Id,omitempty"`
+	Id            []uint32               `protobuf:"varint,1,rep,packed,name=Id,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

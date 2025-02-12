@@ -323,6 +323,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 					log_e.Errorf("There are existing daemonsets on the cluster %v.\n Please remove the daemonsets keeping the GPU resource busy and retry.", daemonsetList)
 					err := errors.New("Taint node and then partition.")
 					generatek8sevent(err, globals.K8EventNoPartition)
+					return
 				}
 			}
 
