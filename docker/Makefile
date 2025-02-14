@@ -13,4 +13,8 @@ HOURLY_TAG_LABEL ?= latest
 .PHONY: docker
 docker:
 	@echo "building amd config manager docker container"
-	@TOP_DIR=$(TOP_DIR) ./build_config_manager_release_docker.sh
+	@TOP_DIR=$(TOP_DIR) ./build_config_manager_release_docker.sh -s
+
+docker-publish:
+	@echo "publishing amd config manager docker container"
+	@TOP_DIR=$(TOP_DIR) ./build_config_manager_release_docker.sh -p

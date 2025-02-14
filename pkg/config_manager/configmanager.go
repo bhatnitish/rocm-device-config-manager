@@ -17,9 +17,9 @@ limitations under the License.
 package configmanager
 
 /*
-#cgo CFLAGS: -I/home/vm/device-config-manager/assets/amd_smi_lib/amd_smi
-#cgo LDFLAGS: -L/home/vm/device-config-manager/assets/amd_smi_lib -lamd_smi
-#include "/home/vm/device-config-manager/assets/amd_smi_lib/amd_smi.h"
+#cgo CFLAGS: -I/device-config-manager/assets/amd_smi_lib/amd_smi
+#cgo LDFLAGS: -L/device-config-manager/assets/amd_smi_lib -lamd_smi
+#include "/device-config-manager/assets/amd_smi_lib/amd_smi.h"
 */
 import "C"
 import (
@@ -256,7 +256,7 @@ func getCurrentGPUComputePartition(processor_handle C.amdsmi_processor_handle) s
 	computePartition := make([]C.char, len)
 	ret := C.amdsmi_get_gpu_compute_partition(processor_handle, &computePartition[0], len)
 	if ret != C.AMDSMI_STATUS_SUCCESS {
-		log_e.Errorf("Failed to get compute partition", ret)
+		log_e.Errorf("Failed to get compute partition %v", ret)
 		return ""
 	}
 	cStr := (*C.char)(unsafe.Pointer(&computePartition[0]))

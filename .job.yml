@@ -1,0 +1,31 @@
+---
+version: 2.0
+builds:
+  build-device-config-manager:
+    commands: ["sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make dcm"]
+    owners: ["email:nkomarla@amd.com"]
+    artifacts:
+        - /device-config-manager/bin/amd-config-manager
+
+  build-device-config-manager-docker:
+    commands: ["sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make all"]
+    owners: ["email:nkomarla@amd.com"]
+    artifacts:
+        - /device-config-manager/docker/obj/configmanager-release-v1.tgz
+
+targets:
+  api-checks:
+    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && \
+                                    make checks"]
+    owners: ["email:nkomarla@amd.com"]
+    area:
+    sub-area:
+    feature:
+
+image:
+  bind_dir: "/device-config-manager"
+  work_dir: "/device-config-manager"
+
+jobs:
+  asset-build:
+    labels: ["CI-Sanity-Build"]
