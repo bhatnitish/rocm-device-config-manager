@@ -55,7 +55,7 @@ VER=v1
 DOCKER_REGISTRY="registry.test.pensando.io:5000/device-config-manager/"
 CONFIGMANAGER_IMAGE="conf_manager"
 
-IMAGE_URL="${DOCKER_REGISTRY}${CONFIGMANAGER_IMAGE}:${VER}"
+IMAGE_URL="${DOCKER_REGISTRY}:${VER}"
 
 echo $TOP_DIR
 cp -r $TOP_DIR/assets/amd_smi_lib $TOP_DIR/docker/smilib
