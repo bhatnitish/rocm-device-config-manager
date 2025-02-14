@@ -8,7 +8,7 @@ builds:
         - /device-config-manager/bin/amd-config-manager
 
   build-device-config-manager-docker:
-    commands: ["sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make dcm_docker"]
+    commands: ["sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make all"]
     owners: ["email:nkomarla@amd.com"]
     artifacts:
         - /device-config-manager/docker/obj/configmanager-release-v1.tgz

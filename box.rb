@@ -8,10 +8,8 @@ gid = getenv("USER_GID")
 # remove old version of go
 run "rm -rf /usr/local/go"
 
-# download go1.20
-run "curl -LO https://go.dev/dl/go1.21.6.linux-amd64.tar.gz"
-run "tar -C /usr/local/ -xzf go1.21.6.linux-amd64.tar.gz"
-
+# download go1.23
+run "wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz && tar -C /usr/local/ -xzf go1.23.4.linux-amd64.tar.gz && rm go1.23.4.linux-amd64.tar.gz"
 # download and install kubectl 
 run "curl -LO https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl"
 run "chmod +x kubectl"

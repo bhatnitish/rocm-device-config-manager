@@ -52,7 +52,7 @@ rm -rf $IMAGE_DIR
 mkdir -p $IMAGE_DIR
 
 VER=v1
-DOCKER_REGISTRY="registry.test.pensando.io:5000/device-config-manager/"
+DOCKER_REGISTRY="registry.test.pensando.io:5000/device-config-manager"
 CONFIGMANAGER_IMAGE="conf_manager"
 
 IMAGE_URL="${DOCKER_REGISTRY}:${VER}"
