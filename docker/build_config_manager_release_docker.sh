@@ -46,9 +46,9 @@ while getopts ":h:sn:p" option; do
     esac
 done
 
+VER=v1
 if [ -z $RELEASE ]; then
   echo "RELEASE is not set, return"
-  VER=v1
 else
   tag_prefix="${RELEASE%-*}"
 
@@ -64,7 +64,6 @@ IMAGE_DIR=$(pwd)/obj
 rm -rf $IMAGE_DIR
 mkdir -p $IMAGE_DIR
 
-VER=v1
 DOCKER_REGISTRY="registry.test.pensando.io:5000/device-config-manager"
 IMAGE_URL="${DOCKER_REGISTRY}:${VER}"
 
