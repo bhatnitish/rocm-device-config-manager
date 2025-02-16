@@ -5,13 +5,13 @@ builds:
     commands: ["sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make dcm"]
     owners: ["email:nkomarla@amd.com"]
     artifacts:
-        - /device-config-manager/bin/amd-config-manager
+        - /device-config-manager/bin/device-config-manager
 
   build-device-config-manager-docker:
     commands: ["sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make all"]
     owners: ["email:nkomarla@amd.com"]
     artifacts:
-        - /device-config-manager/docker/obj/configmanager-release-v1.tgz
+        - /device-config-manager/docker/obj/config-manager-latest.tgz
 
 targets:
   api-checks:

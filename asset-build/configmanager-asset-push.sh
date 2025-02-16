@@ -3,7 +3,23 @@
 if [ -z $RELEASE ]
 then
   echo "RELEASE is not set, return"
+
+  if [ -z ${DOCKERHUB_TOKEN-} ]
+  then
+      echo "DOCKERHUB_TOKEN is not set"
+  else
+      echo "DOCKERHUB_TOKEN is set"
+  fi
+
   exit 0
+fi
+
+tag_prefix="${RELEASE%-*}"
+
+if [ "$tag_prefix" == "config-manager-0.0.1" ]; then
+  tag="latest"
+else
+  tag="$tag_prefix"
 fi
 
 echo "Copying device-config-manager artifacts..."
@@ -15,17 +31,38 @@ setup_dir () {
 }
 
 copy_artifacts () {
-    # copy amd-config-manager binary
-    cp /device-config-manager/bin/amd-config-manager $BUNDLE_DIR/amd-config-manager.gobin
+    # copy device-config-manager binary
+    cp /device-config-manager/bin/device-config-manager $BUNDLE_DIR/device-config-manager-$RELEASE.gobin
     # copy docker image
-    cp /device-config-manager/docker/obj/configmanager-release-*.tgz  $BUNDLE_DIR/
+    cp /device-config-manager/docker/obj/config-manager-latest.tgz $BUNDLE_DIR/device-config-manager-$RELEASE.tar.gz
     # list the artifacts copied out
     ls -la $BUNDLE_DIR
+}
+
+docker_push () {
+    CONFIG_MANAGER_IMAGE_URL=registry.test.pensando.io:5000/device-config-manager
+
+    # rhel 9.4 image push
+    docker load -i /device-config-manager/docker/obj/config-manager-latest.tgz
+    docker inspect $CONFIG_MANAGER_IMAGE_URL:latest | grep "HOURLY"
+    docker tag $CONFIG_MANAGER_IMAGE_URL:latest $CONFIG_MANAGER_IMAGE_URL:$tag
+    docker push $CONFIG_MANAGER_IMAGE_URL:$tag
+
+    if [ -z $DOCKERHUB_TOKEN ]
+    then
+      echo "DOCKERHUB_TOKEN is not set"
+    else
+      # rhel 9.4
+      docker tag $CONFIG_MANAGER_IMAGE_URL:latest amdpsdo/device-config-manager:$tag
+      docker login --username=shreyajmeraamd --password-stdin <<< $DOCKERHUB_TOKEN
+      docker push amdpsdo/device-config-manager:$tag
+    fi
 }
 
 setup () {
     setup_dir
     copy_artifacts
+    docker_push
 }
 
 upload () {
