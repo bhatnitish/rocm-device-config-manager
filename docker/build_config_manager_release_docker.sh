@@ -46,6 +46,19 @@ while getopts ":h:sn:p" option; do
     esac
 done
 
+if [ -z $RELEASE ]; then
+  echo "RELEASE is not set, return"
+  VER=v1
+else
+  tag_prefix="${RELEASE%-*}"
+
+  if [ "$tag_prefix" == "config-manager-0.0.1" ]; then
+    VER="latest"
+  else
+    VER="$tag_prefix"
+  fi
+fi
+
 IMAGE_DIR=$(pwd)/obj
 
 rm -rf $IMAGE_DIR
