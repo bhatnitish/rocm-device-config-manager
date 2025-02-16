@@ -17,7 +17,7 @@ RUN mkdir -p /home/amd/lib/
 
 ADD ./smilib/ /home/amd/lib/
 ENV LD_LIBRARY_PATH=/home/amd/lib/
-ADD ./amd-config-manager /home/amd/bin/server
+ADD ./device-config-manager /home/amd/bin/server
 RUN mkdir -p /home/amd/tools/
 
 ADD ./entrypoint.sh /home/amd/tools/entrypoint.sh
