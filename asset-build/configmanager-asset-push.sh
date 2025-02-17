@@ -53,9 +53,9 @@ docker_push () {
       echo "DOCKERHUB_TOKEN is not set"
     else
       # rhel 9.4
-      docker tag $CONFIG_MANAGER_IMAGE_URL:latest amdpsdo/device-config-manager:$tag
+      docker tag $CONFIG_MANAGER_IMAGE_URL:$tag amdpsdo/device-config-manager:$RELEASE
       docker login --username=shreyajmeraamd --password-stdin <<< $DOCKERHUB_TOKEN
-      docker push amdpsdo/device-config-manager:$tag
+      docker push amdpsdo/device-config-manager:$RELEASE
     fi
 }
 
