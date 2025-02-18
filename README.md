@@ -23,26 +23,31 @@ dcm.amd.com/apply-gpu-config-profile=<any_string>
 
 ## Build and Run Instructions
 
-### Build amddcm application binary
--  Run the following make target in the TOP directory. This will also generate the required protos to build the amddcm application
-   	binary.
-   	```
-    cd $TOPDIR
-    make amddcm
-    ```
-   	
-### Build dcm container
+### Build dcm binary and bring up dcm container
 -  Run the following make target in the TOP directory:
    	```
     cd $TOPDIR
-    make docker
+    make all
     ```
-
+### Build amddcm application binary only
+-  Run the following make target in the TOP directory. This will also generate the required protos to build the DCM application
+   	binary.
+   	```
+    cd $TOPDIR
+    make dcm
+    ```
+### Build dcm container only
+-  Run the following make target in the TOP directory:
+   	```
+    cd $TOPDIR
+    make dcm_docker
+    ```
 ### PARTITION GPU
--  GPU on the node cannot be partitioned on the go, we need to bring down all daemonsets before partitioning. Hence we need to taint the node and add a toleration only to DCM node.
--  TAINT the node where you want to partition the GPU.
+-  GPU on the node cannot be partitioned on the go, we need to bring down all daemonsets using the GPU resource before partitioning. Hence we need to taint the node and add a toleration only to DCM node.
+-  TAINT that particular node where you want to partition the GPU.
 kubectl taint nodes asrock-126-b3-3b dcm=up:NoExecute
 -  Add toleration to amd-gpu-operator-node-feature-discovery-worker daemonset 
+-  Add toleration to all other network related pods as well like flannel, proxy etc before tainting the node.
 ```
 kubectl get ds -n kube-amd-gpu amd-gpu-operator-node-feature-discovery-worker -o yaml > nfd.yaml
 
@@ -70,3 +75,58 @@ kubectl taint nodes asrock-126-b3-3b dcm:NoExecute-
 ### ConfigMap
 
 - Please find an example config map in [_example/configmap.yaml_](https://github.com/pensando/device-config-manager/blob/main/example/configmap.yaml#L1)
+- Example config map and it's meaning
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-manager-config
+  namespace: kube-amd-gpu
+data:
+  config.json: |
+    {
+      "gpu-config-profiles":
+      {
+          "default":
+          {
+              "skippedGPUs": {
+                  "ids": []
+              },
+              "profiles": [
+                  {
+                      "computePartition": "CPX", 
+                      "memoryPartition": "NPS1",
+                      "numGPUsAssigned": 1
+                  },
+                  {
+                      "computePartition": "SPX", 
+                      "memoryPartition": "NPS1",
+                      "numGPUsAssigned": 4
+                  }
+              ]
+          },
+          "profile-1":
+          { 
+              "skippedGPUs": {
+                  "ids": [0, 1, 2]
+              },
+              "profiles": [
+                  {
+                      "computePartition": "CPX",
+                      "memoryPartition": "NPS1",
+                      "numGPUsAssigned": 8
+                  }          
+              ]
+          }
+      }
+    }
+
+```
+- ```gpu-config-profiles``` defines a set of config profiles from which the user can choose the profile he wants to apply.
+- ```default``` and ```profile-1``` are example profile names.
+- ```skippedGPUs``` field is used to specify a list of GPU IDs to ignore during partioning, can be left blank as well.
+- ```computePartition``` field is used to mention compute type of the GPU
+- ```memoryPartition``` field is used to mention memory type of the GPU
+- ```numGPUsAssigned``` field is used to mention the number of GPUs to be partitioned with the specified compute and memory config
+- NOTE: User can also create a heterogenous partitioning config profile by mentioning different sets, each set having info about compute/memory types and the number of GPUs to have that partition (refer ```default``` profile example)
