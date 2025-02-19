@@ -9,8 +9,8 @@ clean:
 dcm:
 	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR)
 
-.PHONY: dcm_docker
-dcm_docker:
+.PHONY: dcm-docker
+dcm-docker:
 	${MAKE} -C docker TOP_DIR=$(TOP_DIR)
 
 .PHONY: docker-publish
