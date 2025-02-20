@@ -325,14 +325,18 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 					generatek8sevent(err, globals.K8EventNoPartition)
 					return
 				}
+			} else {
+				log.Printf("Successfully Partitioned GPUs of profile %d", j+1)
 			}
 
 			updatedCompute := getCurrentGPUComputePartition(processor_handle)
-			log.Print("Updated Compute Type ", updatedCompute)
+			log.Printf("Updated Compute Type ", updatedCompute)
 
 		}
 	}
 
+	log.Printf("Partition completed successfully")
+	generatek8sSuccessEvent(globals.K8EventSuccessfullyPartitioned)
 	return
 }
 
@@ -345,6 +349,39 @@ func shutDownAMDSMI() {
 	}
 
 	return
+}
+
+func generatek8sSuccessEvent(event_n string) {
+	k8sPodNamespace := k8sclient.GetPodNameSpace()
+	k8sPodName := k8sclient.GetPodName()
+	currTime := time.Now().UTC()
+	evtObj := &v1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: string(event_n),
+			Namespace:    k8sPodNamespace,
+		},
+		FirstTimestamp: metav1.Time{
+			Time: currTime,
+		},
+		LastTimestamp: metav1.Time{
+			Time: currTime,
+		},
+		Count:   1,
+		Type:    v1.EventTypeNormal,
+		Reason:  globals.K8EventSuccessfullyPartitioned,
+		Message: "Partition completed successfully.",
+		InvolvedObject: v1.ObjectReference{
+			Kind:      "Pod",
+			Namespace: k8sPodNamespace,
+			Name:      k8sPodName,
+		},
+		Source: v1.EventSource{
+			Host:      k8sclient.GetNodeName(),
+			Component: globals.EventSourceComponentName,
+		},
+	}
+
+	kc.CreateEvent(evtObj)
 }
 
 func generatek8sevent(err error, event_n string) {
