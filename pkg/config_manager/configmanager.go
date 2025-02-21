@@ -433,7 +433,7 @@ func checkInvalidPartitionType(computeType string, memoryType string) error {
 		return err
 	}
 	if !ValidateList(memoryType, globals.ValidMemoryPartitions) {
-		err := errors.New("not a valid profile. Invalid compute type.")
+		err := errors.New("not a valid profile. Invalid memory type.")
 		generatek8sevent(err, globals.K8EventPrefixName)
 		return err
 	}
