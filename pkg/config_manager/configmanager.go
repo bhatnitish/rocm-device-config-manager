@@ -277,7 +277,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	idx := 0
 	err := validateProfile(profile, totalGPUCount)
 	if err != nil {
-		generatek8sevent(err, globals.K8EventInvalidProfile)
+		generateK8sEvent(err, globals.K8EventInvalidProfile)
 		return
 	}
 	gpu_ids_list := createGPUIDList(profile.Filters.Id, totalGPUCount)
@@ -322,7 +322,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 					daemonsetList := kc.GetDaemonSets()
 					log_e.Errorf("There are existing daemonsets on the cluster %v.\n Please remove the daemonsets keeping the GPU resource busy and retry.", daemonsetList)
 					err := errors.New("Taint node and then partition.")
-					generatek8sevent(err, globals.K8EventNoPartition)
+					generateK8sEvent(err, globals.K8EventNoPartition)
 					return
 				}
 			} else {
@@ -336,7 +336,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	}
 
 	log.Printf("Partition completed successfully")
-	generatek8sSuccessEvent(globals.K8EventSuccessfullyPartitioned)
+	generateK8sEvent(nil, globals.K8EventSuccessfullyPartitioned)
 	return
 }
 
@@ -351,46 +351,29 @@ func shutDownAMDSMI() {
 	return
 }
 
-func generatek8sSuccessEvent(event_n string) {
+func generateK8sEvent(err error, event_n string) {
 	k8sPodNamespace := k8sclient.GetPodNameSpace()
 	k8sPodName := k8sclient.GetPodName()
 	currTime := time.Now().UTC()
-	evtObj := &v1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: string(event_n),
-			Namespace:    k8sPodNamespace,
-		},
-		FirstTimestamp: metav1.Time{
-			Time: currTime,
-		},
-		LastTimestamp: metav1.Time{
-			Time: currTime,
-		},
-		Count:   1,
-		Type:    v1.EventTypeNormal,
-		Reason:  globals.K8EventSuccessfullyPartitioned,
-		Message: "Partition completed successfully.",
-		InvolvedObject: v1.ObjectReference{
-			Kind:      "Pod",
-			Namespace: k8sPodNamespace,
-			Name:      k8sPodName,
-		},
-		Source: v1.EventSource{
-			Host:      k8sclient.GetNodeName(),
-			Component: globals.EventSourceComponentName,
-		},
+
+	eventType := v1.EventTypeNormal
+	reason := globals.K8EventSuccessfullyPartitioned
+	message := "Partition completed successfully."
+
+	if err != nil {
+		eventType = v1.EventTypeWarning
+		reason = err.Error()
+		message = err.Error()
 	}
 
+	evtObj := createEventObject(event_n, k8sPodNamespace, k8sPodName, currTime, eventType, reason, message)
 	kc.CreateEvent(evtObj)
 }
 
-func generatek8sevent(err error, event_n string) {
-	k8sPodNamespace := k8sclient.GetPodNameSpace()
-	k8sPodName := k8sclient.GetPodName()
-	currTime := time.Now().UTC()
-	evtObj := &v1.Event{
+func createEventObject(event_n, k8sPodNamespace, k8sPodName string, currTime time.Time, eventType, reason, message string) *v1.Event {
+	return &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: string(event_n),
+			GenerateName: event_n,
 			Namespace:    k8sPodNamespace,
 		},
 		FirstTimestamp: metav1.Time{
@@ -400,9 +383,9 @@ func generatek8sevent(err error, event_n string) {
 			Time: currTime,
 		},
 		Count:   1,
-		Type:    v1.EventTypeWarning,
-		Reason:  err.Error(),
-		Message: string(err.Error()),
+		Type:    eventType,
+		Reason:  reason,
+		Message: message,
 		InvolvedObject: v1.ObjectReference{
 			Kind:      "Pod",
 			Namespace: k8sPodNamespace,
@@ -413,7 +396,6 @@ func generatek8sevent(err error, event_n string) {
 			Component: globals.EventSourceComponentName,
 		},
 	}
-	kc.CreateEvent(evtObj)
 }
 
 func ValidateList(config string, validlist []string) bool {
@@ -429,12 +411,12 @@ func checkInvalidPartitionType(computeType string, memoryType string) error {
 
 	if !ValidateList(computeType, globals.ValidComputePartitions) {
 		err := errors.New("not a valid profile. Invalid compute type.")
-		generatek8sevent(err, globals.K8EventPrefixName)
+		generateK8sEvent(err, globals.K8EventPrefixName)
 		return err
 	}
 	if !ValidateList(memoryType, globals.ValidMemoryPartitions) {
 		err := errors.New("not a valid profile. Invalid memory type.")
-		generatek8sevent(err, globals.K8EventPrefixName)
+		generateK8sEvent(err, globals.K8EventPrefixName)
 		return err
 	}
 	return nil
