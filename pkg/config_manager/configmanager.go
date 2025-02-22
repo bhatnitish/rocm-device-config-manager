@@ -330,7 +330,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 			}
 
 			updatedCompute := getCurrentGPUComputePartition(processor_handle)
-			log.Printf("Updated Compute Type ", updatedCompute)
+			log.Printf("Updated Compute Type %v", updatedCompute)
 
 		}
 	}
