@@ -29,6 +29,7 @@ const (
 	K8EventPrefixName        = "InvalidProfileInfo-"
 	K8EventNoPartition       = "NodeNotTaintedBeforeParition-"
 	K8EventInvalidProfile    = "InvalidProfileInfo-"
+	K8EventSuccessfullyPartitioned = "SuccessfullyPartitioned-"
 )
 
 var ValidComputePartitions = []string{"SPX", "CPX", "DPX", "QPX"}

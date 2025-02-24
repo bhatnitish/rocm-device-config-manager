@@ -277,7 +277,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	idx := 0
 	err := validateProfile(profile, totalGPUCount)
 	if err != nil {
-		generatek8sevent(err, globals.K8EventInvalidProfile)
+		generateK8sEvent(err, globals.K8EventInvalidProfile)
 		return
 	}
 	gpu_ids_list := createGPUIDList(profile.Filters.Id, totalGPUCount)
@@ -322,17 +322,21 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 					daemonsetList := kc.GetDaemonSets()
 					log_e.Errorf("There are existing daemonsets on the cluster %v.\n Please remove the daemonsets keeping the GPU resource busy and retry.", daemonsetList)
 					err := errors.New("Taint node and then partition.")
-					generatek8sevent(err, globals.K8EventNoPartition)
+					generateK8sEvent(err, globals.K8EventNoPartition)
 					return
 				}
+			} else {
+				log.Printf("Successfully Partitioned GPUs of profile %d", j+1)
 			}
 
 			updatedCompute := getCurrentGPUComputePartition(processor_handle)
-			log.Print("Updated Compute Type ", updatedCompute)
+			log.Printf("Updated Compute Type %v", updatedCompute)
 
 		}
 	}
 
+	log.Printf("Partition completed successfully")
+	generateK8sEvent(nil, globals.K8EventSuccessfullyPartitioned)
 	return
 }
 
@@ -347,13 +351,29 @@ func shutDownAMDSMI() {
 	return
 }
 
-func generatek8sevent(err error, event_n string) {
+func generateK8sEvent(err error, event_n string) {
 	k8sPodNamespace := k8sclient.GetPodNameSpace()
 	k8sPodName := k8sclient.GetPodName()
 	currTime := time.Now().UTC()
-	evtObj := &v1.Event{
+
+	eventType := v1.EventTypeNormal
+	reason := globals.K8EventSuccessfullyPartitioned
+	message := "Partition completed successfully."
+
+	if err != nil {
+		eventType = v1.EventTypeWarning
+		reason = err.Error()
+		message = err.Error()
+	}
+
+	evtObj := createEventObject(event_n, k8sPodNamespace, k8sPodName, currTime, eventType, reason, message)
+	kc.CreateEvent(evtObj)
+}
+
+func createEventObject(event_n, k8sPodNamespace, k8sPodName string, currTime time.Time, eventType, reason, message string) *v1.Event {
+	return &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: string(event_n),
+			GenerateName: event_n,
 			Namespace:    k8sPodNamespace,
 		},
 		FirstTimestamp: metav1.Time{
@@ -363,9 +383,9 @@ func generatek8sevent(err error, event_n string) {
 			Time: currTime,
 		},
 		Count:   1,
-		Type:    v1.EventTypeWarning,
-		Reason:  err.Error(),
-		Message: string(err.Error()),
+		Type:    eventType,
+		Reason:  reason,
+		Message: message,
 		InvolvedObject: v1.ObjectReference{
 			Kind:      "Pod",
 			Namespace: k8sPodNamespace,
@@ -376,7 +396,6 @@ func generatek8sevent(err error, event_n string) {
 			Component: globals.EventSourceComponentName,
 		},
 	}
-	kc.CreateEvent(evtObj)
 }
 
 func ValidateList(config string, validlist []string) bool {
@@ -392,12 +411,12 @@ func checkInvalidPartitionType(computeType string, memoryType string) error {
 
 	if !ValidateList(computeType, globals.ValidComputePartitions) {
 		err := errors.New("not a valid profile. Invalid compute type.")
-		generatek8sevent(err, globals.K8EventPrefixName)
+		generateK8sEvent(err, globals.K8EventPrefixName)
 		return err
 	}
 	if !ValidateList(memoryType, globals.ValidMemoryPartitions) {
-		err := errors.New("not a valid profile. Invalid compute type.")
-		generatek8sevent(err, globals.K8EventPrefixName)
+		err := errors.New("not a valid profile. Invalid memory type.")
+		generateK8sEvent(err, globals.K8EventPrefixName)
 		return err
 	}
 	return nil
