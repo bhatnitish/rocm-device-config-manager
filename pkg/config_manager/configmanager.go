@@ -17,9 +17,9 @@ limitations under the License.
 package configmanager
 
 /*
-#cgo CFLAGS: -I/device-config-manager/assets/amd_smi_lib/amd_smi
-#cgo LDFLAGS: -L/device-config-manager/assets/amd_smi_lib -lamd_smi
-#include "/device-config-manager/assets/amd_smi_lib/amd_smi.h"
+#cgo CFLAGS: -I/device-config-manager/assets6.4/amd_smi_lib/amd_smi
+#cgo LDFLAGS: -L/device-config-manager/assets6.4/amd_smi_lib -lamd_smi -L/usr/lib/x86_64-linux-gnu -ldrm_amdgpu
+#include "/device-config-manager/assets6.4/amd_smi_lib/amdsmi.h"
 */
 import "C"
 import (
@@ -67,7 +67,7 @@ func GetPartitionProfile() (string, error) {
 			selectedProfile = gpuConfigProfileNodeLabel
 		}
 
-		log.Printf("\nSelected profile name: %+v\n", selectedProfile)
+		log.Printf("Selected profile name: %+v\n", selectedProfile)
 	} else {
 		log.Printf("No labels present on node, unusual\n")
 	}
@@ -80,9 +80,6 @@ func StartFileWatcher(selectedProfile string) {
 		log.Fatal(err)
 	}
 	defer watcher.Close()
-
-	// Initial read
-	partitionGPU(selectedProfile)
 
 	if _, err := os.Stat(globals.JsonFilePath); os.IsNotExist(err) {
 		<-make(chan struct{})
@@ -133,7 +130,7 @@ func convertComputePartitonType(partitionType string) C.amdsmi_compute_partition
 	}
 }
 
-func getMemoryPartitionType(memoryPartition string) C.amdsmi_memory_partition_type_t {
+func convertMemoryPartitionType(memoryPartition string) C.amdsmi_memory_partition_type_t {
 	switch memoryPartition {
 	case "NPS1":
 		return C.AMDSMI_MEMORY_PARTITION_NPS1
@@ -263,6 +260,18 @@ func getCurrentGPUComputePartition(processor_handle C.amdsmi_processor_handle) s
 	return C.GoString(cStr)
 }
 
+func getCurrentGPUMemoryPartition(processor_handle C.amdsmi_processor_handle) string {
+	var len C.uint32_t = 5
+	memoryPartition := make([]C.char, len)
+	ret := C.amdsmi_get_gpu_memory_partition(processor_handle, &memoryPartition[0], len)
+	if ret != C.AMDSMI_STATUS_SUCCESS {
+		log_e.Errorf("Failed to get memory partition %v", ret)
+		return ""
+	}
+	cStr := (*C.char)(unsafe.Pointer(&memoryPartition[0]))
+	return C.GoString(cStr)
+}
+
 func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile) {
 
 	log.Print("AMD SMI Initialized successfully.")
@@ -302,35 +311,60 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 			}
 
 			existingCompute := getCurrentGPUComputePartition(processor_handle)
+			existingMemory := getCurrentGPUMemoryPartition(processor_handle)
 
-			if currentCompute == existingCompute {
+			if (currentCompute == existingCompute) && (currentMemory == existingMemory) {
 				continue
 			}
 
 			if currentCompute != existingCompute {
-				log.Printf("Profile: %s, Updated ComputePartition: %s\n", selectedProfile, currentCompute)
+				log.Printf("Profile: %s, Existing ComputePartition %s\n", selectedProfile, existingCompute)
 				existingCompute = currentCompute
-			}
 
-			computeType := convertComputePartitonType(currentCompute)
+				computeType := convertComputePartitonType(currentCompute)
 
-			ret_n := C.amdsmi_set_gpu_compute_partition(processor_handle, computeType)
+				ret_n := C.amdsmi_set_gpu_compute_partition(processor_handle, computeType)
 
-			if ret_n != C.AMDSMI_STATUS_SUCCESS {
-				log_e.Errorf("Failed to partition %v \n", ret_n)
-				if ret_n == C.AMDSMI_STATUS_BUSY {
-					daemonsetList := kc.GetDaemonSets()
-					log_e.Errorf("There are existing daemonsets on the cluster %v.\n Please remove the daemonsets keeping the GPU resource busy and retry.", daemonsetList)
-					err := errors.New("Taint node and then partition.")
-					generateK8sEvent(err, globals.K8EventNoPartition)
-					return
+				if ret_n != C.AMDSMI_STATUS_SUCCESS {
+					log_e.Errorf("Failed to partition %v \n", ret_n)
+					if ret_n == C.AMDSMI_STATUS_BUSY {
+						daemonsetList := kc.GetDaemonSets()
+						log_e.Errorf("There are existing daemonsets on the cluster %v.\n Please remove the daemonsets keeping the GPU resource busy and retry.", daemonsetList)
+						err := errors.New("Taint node and then partition.")
+						generateK8sEvent(err, globals.K8EventNoPartition)
+						return
+					}
+				} else {
+					log.Printf("Successfully Partitioned GPUs of profile %d", j+1)
 				}
-			} else {
-				log.Printf("Successfully Partitioned GPUs of profile %d", j+1)
+
+				updatedCompute := getCurrentGPUComputePartition(processor_handle)
+				log.Printf("Updated Compute Type %v", updatedCompute)
 			}
 
-			updatedCompute := getCurrentGPUComputePartition(processor_handle)
-			log.Printf("Updated Compute Type %v", updatedCompute)
+			if currentMemory != existingMemory {
+				log.Printf("Profile: %s, Existing MemoryPartition: %s\n", selectedProfile, existingMemory)
+				existingMemory = currentMemory
+
+				memoryType := convertMemoryPartitionType(currentMemory)
+				ret_n := C.amdsmi_set_gpu_memory_partition(processor_handle, memoryType)
+
+				if ret_n != C.AMDSMI_STATUS_SUCCESS {
+					log_e.Errorf("Failed to memory partition %v \n", ret_n)
+					if ret_n == C.AMDSMI_STATUS_BUSY {
+						daemonsetList := kc.GetDaemonSets()
+						log_e.Errorf("There are existing daemonsets on the cluster %v.\n Please remove the daemonsets keeping the GPU resource busy and retry.", daemonsetList)
+						err := errors.New("Taint node and then partition.")
+						generateK8sEvent(err, globals.K8EventNoPartition)
+						return
+					}
+				} else {
+					log.Printf("Successfully Partitioned GPUs of profile %d", j+1)
+				}
+
+				updatedMemory := getCurrentGPUMemoryPartition(processor_handle)
+				log.Printf("Updated Memory Type %v", updatedMemory)
+			}
 
 		}
 	}
