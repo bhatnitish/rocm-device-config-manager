@@ -391,12 +391,11 @@ func generateK8sEvent(err error, event_n string) {
 	currTime := time.Now().UTC()
 
 	eventType := v1.EventTypeNormal
-	reason := globals.K8EventSuccessfullyPartitioned
+	reason := event_n
 	message := "Partition completed successfully."
 
 	if err != nil {
 		eventType = v1.EventTypeWarning
-		reason = err.Error()
 		message = err.Error()
 	}
 
@@ -445,12 +444,12 @@ func checkInvalidPartitionType(computeType string, memoryType string) error {
 
 	if !ValidateList(computeType, globals.ValidComputePartitions) {
 		err := errors.New("not a valid profile. Invalid compute type.")
-		generateK8sEvent(err, globals.K8EventPrefixName)
+		generateK8sEvent(err, globals.K8EventInvalidComputeType)
 		return err
 	}
 	if !ValidateList(memoryType, globals.ValidMemoryPartitions) {
 		err := errors.New("not a valid profile. Invalid memory type.")
-		generateK8sEvent(err, globals.K8EventPrefixName)
+		generateK8sEvent(err, globals.K8EventInvalidMemoryType)
 		return err
 	}
 	return nil

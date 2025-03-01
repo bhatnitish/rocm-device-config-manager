@@ -25,11 +25,12 @@ const (
 	LabelKey                = "dcm.amd.com/gpu-config-profile"
 	TriggerLabelKey         = "dcm.amd.com/apply-gpu-config-profile"
 
-	EventSourceComponentName = "amd-device-config-manager"
-	K8EventPrefixName        = "InvalidProfileInfo-"
-	K8EventNoPartition       = "NodeNotTaintedBeforeParition-"
-	K8EventInvalidProfile    = "InvalidProfileInfo-"
-	K8EventSuccessfullyPartitioned = "SuccessfullyPartitioned-"
+	EventSourceComponentName       = "amd-device-config-manager"
+	K8EventInvalidComputeType      = "InvalidComputeType"
+	K8EventInvalidMemoryType       = "InvalidMemoryType"
+	K8EventNoPartition             = "NodeNotTaintedBeforeParition"
+	K8EventInvalidProfile          = "InvalidProfileInfo"
+	K8EventSuccessfullyPartitioned = "SuccessfullyPartitioned"
 )
 
 var ValidComputePartitions = []string{"SPX", "CPX", "DPX", "QPX"}
