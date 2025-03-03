@@ -21,6 +21,9 @@ targets:
     area:
     sub-area:
     feature:
+    build-dependencies:
+        - build-device-config-manager
+        - build-device-config-manager-docker
 
 image:
   bind_dir: "/device-config-manager"
