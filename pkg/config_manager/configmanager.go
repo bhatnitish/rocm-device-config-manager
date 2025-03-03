@@ -18,7 +18,7 @@ package configmanager
 
 /*
 #cgo CFLAGS: -I/device-config-manager/assets6.4/amd_smi_lib/amd_smi
-#cgo LDFLAGS: -L/device-config-manager/assets6.4/amd_smi_lib -lamd_smi -ldrm -ldrm_amdgpu
+#cgo LDFLAGS: -L/device-config-manager/assets6.4/amd_smi_lib -lamd_smi
 #include "/device-config-manager/assets6.4/amd_smi_lib/amdsmi.h"
 */
 import "C"
