@@ -100,6 +100,11 @@ func StartFileWatcher(selectedProfile string) {
 				}
 				if event.Has(fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename) {
 					log.Print("Detected changes in config.json, re-reading the file.")
+					selectedProfile, err := GetPartitionProfile()
+					if err != nil {
+						log_e.Errorf("err: %+v", err)
+					}
+					partitionGPU(selectedProfile)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -518,7 +523,7 @@ func partitionGPU(selectedProfile string) {
 func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
 	// Check for added or updated labels
 	for key, newVal := range newLabels {
-		if key == globals.TriggerLabelKey && newVal != "" {
+		if key == globals.LabelKey && newVal != "" {
 			if oldVal, exists := oldLabels[key]; !exists || oldVal != newVal {
 				log.Printf("Label changed: %s\nOld value: %s\nNew value: %s\n", key, oldVal, newVal)
 				selectedProfile, err := GetPartitionProfile()
