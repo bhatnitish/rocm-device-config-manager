@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -98,7 +99,19 @@ func (k *K8sClient) GetNodeLabel(nodeName string) (map[string]string, error) {
 	ctx, cancel := context.WithCancel(k.ctx)
 	defer cancel()
 
-	node, err := k.clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	retries := 10
+	var err error
+	var node *v1.Node
+
+	for i := range retries {
+		node, err = k.clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+		if err == nil {
+			break
+		} else {
+			log.Printf("k8s get node API failed (attempt %d/%d): %v", i+1, retries, err)
+			time.Sleep(30 * time.Second)
+		}
+	}
 	if err != nil {
 		log.Printf("k8s internal node get failed %v", err)
 		return make(map[string]string), err
@@ -160,4 +173,49 @@ func (k *K8sClient) GetDaemonSets() []string {
 	}
 
 	return daemonsetlist
+}
+
+func (k *K8sClient) AddNodeLabel(nodeName string, key string, value string) error {
+	k.reConnect()
+	k.Lock()
+	defer k.Unlock()
+	ctx, cancel := context.WithCancel(k.ctx)
+	defer cancel()
+
+	retries := 10
+	var err error
+	var node *v1.Node
+
+	for i := range retries {
+		node, err = k.clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+		if err == nil {
+			break
+		}
+
+		log.Printf("k8s get node API failed (attempt %d/%d): %v", i+1, retries, err)
+		time.Sleep(10 * time.Second)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	node.Labels[key] = value
+
+	for i := range retries {
+		_, err = k.clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+		if err == nil {
+			break
+		}
+
+		log.Printf("k8s update node API failed (attempt %d/%d): %v", i+1, retries, err)
+		time.Sleep(10 * time.Second)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Gpu-config-profile-state label added successfully")
+	return nil
 }

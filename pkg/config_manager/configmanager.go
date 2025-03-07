@@ -204,8 +204,8 @@ func amdsmiGetProcessorType(processor_handle C.amdsmi_processor_handle) (C.proce
 func createGPUIDList(filter_ids []uint32, totalGPUCount int) []int {
 	result := []int{}
 outer:
-	for i := 0; i < totalGPUCount; i++ {
-		for fID := range filter_ids {
+	for i := range totalGPUCount {
+		for _, fID := range filter_ids {
 			if int(fID) == i {
 				continue outer
 			}
@@ -222,33 +222,45 @@ func validateProfile(profile *partition_pb.GPUConfigProfile, totalGPUCount int) 
 	devicefilter := profile.Filters
 	if len(devicefilter.Id) > totalGPUCount {
 		log.Printf("Device filter count %d exceeding existing GPU count %d in node", len(devicefilter.Id), totalGPUCount)
-		err := errors.New("GPU ID list specified in the device filter is invalid, its exceeding the total number of GPUs available on this node")
+		err := errors.New("GPU ID list specified in the device filter is invalid, list length is exceeding the total number of GPUs available on this node")
+		log.Printf("ERROR %v", err)
+		return err
+	}
+
+	for _, id := range devicefilter.Id {
+		if int(id)+1 > totalGPUCount {
+			log.Printf("Invalid GPU ID specified in skippedGPUs list: %v Valid GPU indices : 0 - %v", id, totalGPUCount-1)
+			err := errors.New("invalid gpu id")
+			return err
+		}
+	}
+
+	for i := range devices_conf_count {
+		nod := profiles[i].NumGPUsAssigned
+		total_devices = total_devices + int(nod)
+	}
+	if total_devices+len(devicefilter.Id) != totalGPUCount {
+		err := errors.New("The total of all numGPUsAssigned values across profiles, combined with the count of IDs in the skippedGPUs list, does not equal the total number of GPUs available on this node.")
 		log.Printf("ERROR %v", err)
 		return err
 	}
 	gpu_ids_list := createGPUIDList(devicefilter.Id, totalGPUCount)
 	log.Printf("Usable GPU IDs for partitioning %v", gpu_ids_list)
+	currentMemory := profiles[0].MemoryPartition
 	for i := 0; i < devices_conf_count; i++ {
 		currentCompute := profiles[i].ComputePartition
-		currentMemory := profiles[i].MemoryPartition
-		err := checkInvalidPartitionType(currentCompute, currentMemory)
+		err := checkInvalidPartitionType(currentCompute, profiles[i].MemoryPartition)
 		if err != nil {
 			log.Printf("Invalid partition types %v %v", currentCompute, currentMemory)
 			return err
 		}
-		nod := profiles[i].NumGPUsAssigned
-		if int(nod) == 0 {
-			profiles[i].NumGPUsAssigned = uint32(totalGPUCount)
-			nod = uint32(totalGPUCount)
-		}
-		total_devices = total_devices + int(nod)
-		if total_devices > len(gpu_ids_list) {
-			err = errors.New("Sum of all the numGPUsAssigned field across the profiles is exceeding the total number of GPUs available on this node")
-			log.Printf("ERROR %v", err)
+		if currentMemory != profiles[i].MemoryPartition {
+			log.Printf("All profiles must have a common memory type NPS1 or NPS4")
+			err := errors.New("Profile cannot have combination of NPS1 and NPS4 memory types")
 			return err
-		} else {
-			log.Printf("Partitioning %v devices with compute partition type %v and memory type %v", nod, currentCompute, currentMemory)
 		}
+		nod := profiles[i].NumGPUsAssigned
+		log.Printf("Partitioning %v devices with compute partition type %v and memory type %v", nod, currentCompute, currentMemory)
 	}
 	return nil
 }
@@ -285,6 +297,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	var device_count int
 
 	totalGPUCount := len(sockets)
+	nodeName := k8sclient.GetNodeName()
 	log.Print("Total number of GPUs in the node ", totalGPUCount)
 	log.Printf("Skipped GPU IDs for partitioning %v", profile.Filters.Id)
 	profiles := profile.Profiles
@@ -292,6 +305,10 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	err := validateProfile(profile, totalGPUCount)
 	if err != nil {
 		generateK8sEvent(err, globals.K8EventInvalidProfile)
+		err = kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
+		if err != nil {
+			log.Printf("Error adding status node label: %s\n", err.Error())
+		}
 		return
 	}
 	gpu_ids_list := createGPUIDList(profile.Filters.Id, totalGPUCount)
@@ -336,10 +353,14 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 						log_e.Errorf("There are existing daemonsets on the cluster %v.\n Please remove the daemonsets keeping the GPU resource busy and retry.", daemonsetList)
 						err := errors.New("Taint node and then partition.")
 						generateK8sEvent(err, globals.K8EventNoPartition)
+						err = kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
+						if err != nil {
+							log.Printf("Error adding status node label: %s\n", err.Error())
+						}
 						return
 					}
 				} else {
-					log.Printf("Successfully Partitioned GPUs of profile %d", j+1)
+					log.Printf("Successfully partitioned GPU ID %d ", gpu_ids_list[idx])
 					log.Printf("Updated Memory Type %v", updatedMemory)
 				}
 			}
@@ -354,6 +375,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 
 				ret_n := C.amdsmi_set_gpu_compute_partition(processor_handle, computeType)
 
+				updatedCompute := getCurrentGPUComputePartition(processor_handle)
 				if ret_n != C.AMDSMI_STATUS_SUCCESS {
 					log_e.Errorf("Failed to partition %v \n", ret_n)
 					if ret_n == C.AMDSMI_STATUS_BUSY {
@@ -361,22 +383,29 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 						log_e.Errorf("There are existing daemonsets on the cluster %v.\n Please remove the daemonsets keeping the GPU resource busy and retry.", daemonsetList)
 						err := errors.New("Taint node and then partition.")
 						generateK8sEvent(err, globals.K8EventNoPartition)
+						err = kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
+						if err != nil {
+							log.Printf("Error adding status node label: %s\n", err.Error())
+						}
 						return
 					}
 				} else {
-					log.Printf("Successfully Partitioned GPUs of profile %d", j+1)
+					log.Printf("Successfully partitioned GPU ID %d ", gpu_ids_list[idx])
+					log.Printf("Updated Compute Type %v", updatedCompute)
 				}
-
-				updatedCompute := getCurrentGPUComputePartition(processor_handle)
-				log.Printf("Updated Compute Type %v", updatedCompute)
 			}
-
 		}
+		log.Printf("Successfully Partitioned GPUs of profile %d", i+1)
 	}
 
 	log.Printf("Partition completed successfully")
 	generateK8sEvent(nil, globals.K8EventSuccessfullyPartitioned)
-	return
+
+	err = kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "success")
+	if err != nil {
+		log.Printf("Error adding status node label: %s\n", err.Error())
+		return
+	}
 }
 
 func shutDownAMDSMI() {
@@ -517,7 +546,6 @@ func partitionGPU(selectedProfile string) {
 	defer shutDownAMDSMI()
 
 	amdSMIHelper(selectedProfile, profile)
-	return
 }
 
 func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
@@ -538,7 +566,9 @@ func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
 	// Check for removed labels
 	for key, oldVal := range oldLabels {
 		if _, exists := newLabels[key]; !exists {
-			log.Printf("Label removed: %s\nOld value: %s\n", key, oldVal)
+			if key == globals.LabelKey {
+				log.Printf("Label removed: %s\nOld value: %s\n", key, oldVal)
+			}
 		}
 	}
 }
