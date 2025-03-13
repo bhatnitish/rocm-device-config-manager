@@ -14,6 +14,7 @@ spec:
       labels:
         app: amdgpu-device-config-manager
     spec:
+      serviceAccountName: {{ include "helm-charts.fullname" . }}-config-manager
       {{- if .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml .Values.nodeSelector | nindent 8 }}
@@ -50,10 +51,8 @@ spec:
             name: sys-volume
           - mountPath: /var/lib/
             name: health
-          {{- if .Values.configMap }}
-          - name: config-manager-config-volume
-            mountPath: /etc/config-manager/
-          {{- end }}
+          - mountPath: /etc/config-manager/
+            name: config-manager-config-volume
           workingDir: /root
       volumes:
       - hostPath:
@@ -68,8 +67,6 @@ spec:
           path: /var/lib/
           type: Directory
         name: health
-      {{- if .Values.configMap }}
       - name: config-manager-config-volume
         configMap:
-          name: {{ .Values.configMap }}
-      {{- end}}
+          name: config-manager-config
