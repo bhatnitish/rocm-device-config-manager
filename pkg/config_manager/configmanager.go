@@ -62,7 +62,8 @@ func GetPartitionProfile() (string, error) {
 		gpuConfigProfileNodeLabel := labels[globals.LabelKey]
 
 		if gpuConfigProfileNodeLabel == "" {
-			selectedProfile = globals.DefaultProfileName
+			err := errors.New("no profile selected")
+			return "", err
 		} else {
 			selectedProfile = gpuConfigProfileNodeLabel
 		}
@@ -104,7 +105,7 @@ func StartFileWatcher(selectedProfile string) {
 					if err != nil {
 						log_e.Errorf("err: %+v", err)
 					}
-					partitionGPU(selectedProfile)
+					PartitionGPU(selectedProfile)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -489,52 +490,33 @@ func checkInvalidPartitionType(computeType string, memoryType string) error {
 	return nil
 }
 
-func partitionGPU(selectedProfile string) {
+func PartitionGPU(selectedProfile string) {
 
 	var profile *partition_pb.GPUConfigProfile
 	var exists bool
 
 	log.Printf("Paritioning the GPU\n")
-	configmap_exist := false
 	if _, err := os.Stat(globals.JsonFilePath); os.IsNotExist(err) {
-		log.Printf("ConfigMap not present, using default profile")
+		log.Printf("ConfigMap not present, please configure a configmap to proceed")
+		return
 	} else {
 		log.Printf("Reading configmap: %v\n", globals.JsonFilePath)
-		configmap_exist = true
 	}
 
-	if configmap_exist {
-		var profiles partition_pb.GPUConfigProfiles
-		file, _ := ioutil.ReadFile(globals.JsonFilePath)
-		err := json.Unmarshal(file, &profiles)
-		if err != nil {
-			log_e.Errorf("Failed to unmarshal JSON: %v", err)
-			return
-		}
+	var profiles partition_pb.GPUConfigProfiles
+	file, _ := ioutil.ReadFile(globals.JsonFilePath)
+	err := json.Unmarshal(file, &profiles)
+	if err != nil {
+		log_e.Errorf("Failed to unmarshal JSON: %v", err)
+		return
+	}
 
-		profile, exists = profiles.ProfilesList[selectedProfile]
-		if exists {
-			log.Printf("Profile found: %v\n", profile)
-		} else {
-			log.Printf("Profile %v not found.\n", selectedProfile)
-			return
-		}
+	profile, exists = profiles.ProfilesList[selectedProfile]
+	if exists {
+		log.Printf("Profile found: %v\n", profile)
 	} else {
-		skippedGPUs := &partition_pb.SkippedGPUs{
-			Id: []uint32{},
-		}
-
-		profiles := []*partition_pb.ProfileConfig{
-			{
-				ComputePartition: globals.DefaultComputePartition,
-				MemoryPartition:  globals.DefaultMemoryPartition,
-			},
-		}
-
-		profile = &partition_pb.GPUConfigProfile{
-			Filters:  skippedGPUs,
-			Profiles: profiles,
-		}
+		log.Printf("Profile %v not found.\n", selectedProfile)
+		return
 	}
 
 	// Initialize the AMD SMI library for GPU
@@ -558,7 +540,7 @@ func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
 				if err != nil {
 					log_e.Errorf("err: %+v", err)
 				}
-				partitionGPU(selectedProfile)
+				PartitionGPU(selectedProfile)
 			}
 		}
 	}

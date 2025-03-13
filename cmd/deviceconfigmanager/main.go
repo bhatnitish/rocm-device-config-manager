@@ -28,6 +28,10 @@ func main() {
 		log.Fatalf("err: %+v", err)
 	}
 
+	if selectedProfile != "" {
+		configmanager.PartitionGPU(selectedProfile)
+	}
+
 	// starting a seperate go routine for file watcher
 	go configmanager.StartFileWatcher(selectedProfile)
 
