@@ -62,8 +62,7 @@ func GetPartitionProfile() (string, error) {
 		gpuConfigProfileNodeLabel := labels[globals.LabelKey]
 
 		if gpuConfigProfileNodeLabel == "" {
-			err := errors.New("no profile selected")
-			return "", err
+			log.Printf("No profile selected yet, please add the label to select profile")
 		} else {
 			selectedProfile = gpuConfigProfileNodeLabel
 		}
