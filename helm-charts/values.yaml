@@ -11,4 +11,5 @@ service:
   type: ClusterIP
   port: 80
 
+# specify configmap name (mandatory)
 configMap: "config-manager-config"

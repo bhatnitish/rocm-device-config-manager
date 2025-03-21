@@ -33,6 +33,18 @@ helm-lint:
 helm-build: helm-lint
 	helm package helm-charts/ --destination ./helm-charts
 
+.PHONY: helm-install
+helm-install: helm-build
+	cd $(HELM_CHARTS_DIR); helm install amd-gpu-operator ./device-config-manager-charts-v1.0.0.tgz -n kube-amd-gpu --create-namespace -f values.yaml
+
+.PHONY: helm-uninstall
+helm-uninstall:
+	helm uninstall amd-gpu-operator -n kube-amd-gpu
+
+.PHONY: helm-list
+helm-list:
+	helm list --all-namespaces
+
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 .PHONY: golangci-lint
 golangci-lint: ## Download golangci-lint locally if necessary.
@@ -78,3 +90,7 @@ mod:
 
 .PHONY:checks
 checks: vet
+
+.PHONY: e2e
+e2e:
+	${MAKE} -C test/k8s-e2e all TOP_DIR=$(TOP_DIR)
