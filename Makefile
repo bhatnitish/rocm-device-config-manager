@@ -1,5 +1,26 @@
 TOP_DIR := $(PWD)
 HELM_CHARTS_DIR := $(TOP_DIR)/helm-charts
+PKG_LIB_PATH := ${TOP_DIR}/debian/usr/local/
+ASSETS_PATH :=${TOP_DIR}/assets
+# 22.04 - jammy
+# 24.04 - noble
+UBUNTU_VERSION ?= jammy
+UBUNTU_VERSION_NUMBER = 22.04
+ifeq (${UBUNTU_VERSION}, noble)
+UBUNTU_VERSION_NUMBER = 24.04
+endif
+
+ifeq ($(RELEASE),)
+DEBIAN_VERSION := "1.0.0"
+else
+DEBIAN_VERSION := $(shell echo "$(RELEASE)" | sed 's/^.//')
+endif
+
+DEBIAN_CONTROL = ${TOP_DIR}/debian/DEBIAN/control
+BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
+
+AMD_SMI_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_VERSION}/lib
+PKG_PATH := ${TOP_DIR}/debian/usr/local/bin
 
 .PHONY:clean
 clean:
@@ -69,6 +90,30 @@ lint: golangci-lint ## Run golangci-lint against code.
 		exit 1; \
 	fi
 	$(GOLANGCI_LINT) run -v --timeout 5m0s
+
+pkg-clean:
+	rm -rf ${TOP_DIR}/bin/*.deb
+
+.PHONY: pkg
+pkg: pkg-clean
+	${MAKE} dcm
+	@echo "Building debian for $(BUILD_VER_ENV)"
+	#copy precompiled libs
+	mkdir -p ${PKG_LIB_PATH}
+	cp -rvf ${AMD_SMI_LIBS}/ ${PKG_LIB_PATH}
+	mkdir -p ${PKG_PATH}
+	cp -vf $(TOP_DIR)/bin/device-config-manager ${PKG_PATH}/
+	#strip the dcm gobin to reduce the debian package size
+	strip ${PKG_PATH}/device-config-manager
+	cd ${TOP_DIR}
+	sed -i "s/BUILD_VER_ENV/$(BUILD_VER_ENV)/g" $(DEBIAN_CONTROL)
+	dpkg-deb -Zxz --build debian ${TOP_DIR}/bin
+	#remove copied files
+	rm -rf ${PKG_LIB_PATH}
+	# revert the dynamic version set file
+	git checkout $(DEBIAN_CONTROL)
+	# rename for internal build
+	mv -vf ${TOP_DIR}/bin/amdgpu-configmanager_*~${UBUNTU_VERSION_NUMBER}_amd64.deb ${TOP_DIR}/bin/amdgpu-configmanager_${UBUNTU_VERSION_NUMBER}_amd64.deb
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.

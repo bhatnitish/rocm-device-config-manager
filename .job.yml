@@ -1,6 +1,12 @@
 ---
 version: 2.0
 builds:
+  build-debian-package-ub22.04:
+    commands: [ "sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make pkg"]
+    owners: ["email:nkomarla@amd.com"]
+    artifacts:
+        - /device-config-manager/bin/amdgpu-configmanager_22.04_amd64.deb
+
   build-device-config-manager:
     commands: ["sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make dcm"]
     owners: ["email:nkomarla@amd.com"]

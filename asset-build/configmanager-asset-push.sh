@@ -31,10 +31,16 @@ setup_dir () {
 }
 
 copy_artifacts () {
+    # remove 'configmanager-' from release label for upstream version changes
+    DEBIAN_VERSION="${RELEASE:9}"
     # copy device-config-manager binary
     cp /device-config-manager/bin/device-config-manager $BUNDLE_DIR/device-config-manager-$RELEASE.gobin
     # copy docker image
     cp /device-config-manager/docker/obj/config-manager-latest.tgz $BUNDLE_DIR/device-config-manager-$RELEASE.tar.gz
+    # copy device-config-manager debian
+    cp /device-config-manager/bin/amdgpu-configmanager_22.04_amd64.deb $BUNDLE_DIR/amdgpu-configmanager_${DEBIAN_VERSION}~22.04_amd64.deb
+    # copy helm-charts
+    cp /device-config-manager/helm-charts/device-config-manager-charts-v1.0.0.tgz $BUNDLE_DIR/device-config-manager-charts-$RELEASE-v1.0.0.tgz
     # list the artifacts copied out
     ls -la $BUNDLE_DIR
 }

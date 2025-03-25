@@ -11,6 +11,7 @@ targets:
       - build-device-config-manager
       - build-device-config-manager-docker
       - build-helm-artifact
+      - build-debian-package-ub22.04
 
 image:
   bind_dir: "/go/src/github.com/pensando/device-config-manager"
