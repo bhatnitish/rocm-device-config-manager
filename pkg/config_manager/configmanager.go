@@ -106,6 +106,8 @@ func StartFileWatcher(selectedProfile string) {
 					}
 					PartitionGPU(selectedProfile)
 				}
+				watcher.Remove(globals.JsonFilePath)
+				watcher.Add(globals.JsonFilePath)
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
