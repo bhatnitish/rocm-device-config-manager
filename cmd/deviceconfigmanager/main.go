@@ -16,8 +16,9 @@ limitations under the License.
 package main
 
 import (
-	"github.com/pensando/device-config-manager/pkg/config_manager"
 	"log"
+
+	configmanager "github.com/pensando/device-config-manager/pkg/config_manager"
 )
 
 func main() {

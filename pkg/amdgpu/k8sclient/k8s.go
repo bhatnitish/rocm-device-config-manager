@@ -119,13 +119,17 @@ func (k *K8sClient) GetNodeLabel(nodeName string) (map[string]string, error) {
 	return node.Labels, nil
 }
 
-func (k *K8sClient) GetNodeInformer() cache.SharedIndexInformer {
+func (k *K8sClient) GetNodeInformer(nodeName string) cache.SharedIndexInformer {
 	k.reConnect()
 	k.Lock()
 	defer k.Unlock()
 
 	// Create a shared informer factory
-	factory := informers.NewSharedInformerFactory(k.clientset, 0)
+	factory := informers.NewSharedInformerFactoryWithOptions(k.clientset, 0,
+		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.FieldSelector = fmt.Sprintf("metadata.name=%s", nodeName) // Filter by node name
+		}),
+	)
 
 	// Create a node informer
 	nodeInformer := factory.Core().V1().Nodes().Informer()
