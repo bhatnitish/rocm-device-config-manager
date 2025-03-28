@@ -68,7 +68,7 @@ DOCKER_REGISTRY="registry.test.pensando.io:5000/device-config-manager"
 IMAGE_URL="${DOCKER_REGISTRY}:${VER}"
 
 echo $TOP_DIR
-cp -r $TOP_DIR/assets/amd_smi_lib $TOP_DIR/docker/smilib
+cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/jammy/lib $TOP_DIR/docker/smilib
 ln -f $TOP_DIR/bin/device-config-manager $TOP_DIR/docker/device-config-manager
 
 if [ $PUBLISH_IMAGE == 1 ]; then
