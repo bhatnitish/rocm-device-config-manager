@@ -13,7 +13,7 @@ endif
 ifeq ($(RELEASE),)
 DEBIAN_VERSION := "1.0.0"
 else
-DEBIAN_VERSION := $(shell echo "$(RELEASE)" | cut -c 10-)
+DEBIAN_VERSION := $(shell echo "$(RELEASE)" | sed 's/^.//')
 endif
 
 DEBIAN_CONTROL = ${TOP_DIR}/debian/DEBIAN/control
