@@ -46,6 +46,7 @@ import (
 )
 
 var kc *k8sclient.K8sClient = k8sclient.NewClient(context.Background())
+var nodeName string = k8sclient.GetNodeName()
 
 var sockets []C.amdsmi_socket_handle
 var totalGPUCount int
@@ -78,7 +79,6 @@ func generateK8sEvent(err error, event_n string, partStatus types.PartitionStatu
 func GetPartitionProfile() (string, error) {
 
 	var selectedProfile string
-	nodeName := k8sclient.GetNodeName()
 	if nodeName == "" {
 		err := errors.New("not a k8s deployment")
 		return "", err
@@ -354,7 +354,6 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	var gpu_id int
 	var partition_err_reason string
 
-	nodeName := k8sclient.GetNodeName()
 	log.Print("Total number of GPUs in the node ", totalGPUCount)
 	log.Printf("Skipped GPU IDs for partitioning %v", profile.Filters.Id)
 	profiles := profile.Profiles
@@ -363,6 +362,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	partStatus.SelectedProfile = selectedProfile
 	partStatus.GPUStatus = nil
 	err := validateProfile(profile, totalGPUCount, selectedProfile)
+	podList := kc.GetPods(nodeName)
 	if err != nil {
 		partStatus.FinalStatus = "Failure"
 		partStatus.Reason = fmt.Sprintf("Partition failed with reason: %v", err)
@@ -422,8 +422,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 					partition_err_reason = getAMDSMIStatusString(int(ret_n))
 					log_e.Errorf("Failed to memory partition %v \n", partition_err_reason)
 					if ret_n == C.AMDSMI_STATUS_BUSY {
-						daemonsetList := kc.GetDaemonSets()
-						log_e.Errorf("There are existing daemonsets on the cluster %v.\n Please remove the daemonsets keeping the GPU resource busy and retry.", daemonsetList)
+						log_e.Errorf("There might be existing pods/daemonsets on the cluster keeping the GPU resource busy, please remove them and retry. Pods list on this node: %v", podList)
 					}
 					err = kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
 					if err != nil {
@@ -452,8 +451,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 					partition_err_reason = getAMDSMIStatusString(int(ret_n))
 					log_e.Errorf("Failed to partition %v \n", partition_err_reason)
 					if ret_n == C.AMDSMI_STATUS_BUSY {
-						daemonsetList := kc.GetDaemonSets() // add pods check
-						log_e.Errorf("There are existing daemonsets on the cluster %v.\n Please remove the daemonsets keeping the GPU resource busy and retry.", daemonsetList)
+						log_e.Errorf("There might be existing pods/daemonsets on the cluster keeping the GPU resource busy, please remove them and retry. Pods list on this node: %v", podList)
 					}
 					err = kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
 					if err != nil {
@@ -480,12 +478,8 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	}
 
 	if partition_failed {
-		if partition_err_reason == "Device busy." {
-			generateK8sEvent(errors.New(partition_err_reason), globals.K8EventNoPartition, partStatus)
-		} else {
-			generateK8sEvent(errors.New(partition_err_reason), globals.K8EventPartitionFailed, partStatus)
-		}
-
+		log.Printf("Partition failed.")
+		generateK8sEvent(errors.New(partition_err_reason), globals.K8EventPartitionFailed, partStatus)
 	} else {
 		if partition_needed {
 			log.Printf("Partition completed successfully")
@@ -538,7 +532,7 @@ func createEventObject(event_n, k8sPodNamespace, k8sPodName string, currTime tim
 			Name:      k8sPodName,
 		},
 		Source: v1.EventSource{
-			Host:      k8sclient.GetNodeName(),
+			Host:      nodeName,
 			Component: globals.EventSourceComponentName,
 		},
 	}
@@ -597,7 +591,6 @@ func PartitionGPU(selectedProfile string) {
 		partStatus.SelectedProfile = selectedProfile
 		partStatus.GPUStatus = nil
 		generateK8sEvent(errors.New("Profile not found."), globals.K8EventNonExistentProfile, partStatus)
-		nodeName := k8sclient.GetNodeName()
 		err = kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
 		if err != nil {
 			log.Printf("Error adding status node label: %s\n", err.Error())
@@ -644,7 +637,7 @@ func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
 
 func NodeLabelWatcher() {
 
-	nodeInformer := kc.GetNodeInformer(k8sclient.GetNodeName())
+	nodeInformer := kc.GetNodeInformer(nodeName)
 
 	// Set up event handlers for the node informer
 	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{

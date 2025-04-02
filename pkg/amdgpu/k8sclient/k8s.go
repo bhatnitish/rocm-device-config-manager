@@ -179,6 +179,31 @@ func (k *K8sClient) GetDaemonSets() []string {
 	return daemonsetlist
 }
 
+func (k *K8sClient) GetPods(nodeName string) []string {
+	k.reConnect()
+	k.Lock()
+	defer k.Unlock()
+	ctx, cancel := context.WithCancel(k.ctx)
+	defer cancel()
+
+	podNames := []string{}
+
+	// List all pods across all namespaces
+	pods, err := k.clientset.CoreV1().Pods(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Printf("Failed to list pods: %v", err)
+		return podNames
+	}
+
+	for _, pod := range pods.Items {
+		if pod.Spec.NodeName == nodeName {
+			podNames = append(podNames, pod.Name)
+		}
+	}
+
+	return podNames
+}
+
 func (k *K8sClient) AddNodeLabel(nodeName string, key string, value string) error {
 	k.reConnect()
 	k.Lock()
