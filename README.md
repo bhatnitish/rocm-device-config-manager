@@ -7,13 +7,16 @@ Users will provide the GPU configurations using a K8s config-map. The config-map
 _Kubernets Node labels for GPU partitioning_
 ```
 dcm.amd.com/gpu-config-profile=<profile_name>
-dcm.amd.com/apply-gpu-config-profile=<any_string>
 ```
 
 -  Create a config map and apply it on the node.
 -  Once applied, user has to add the label amd.com/gpu-config-profile to specify the profile name to be used from the config map.
--  Then, to trigger the partition using that profile's config, user should apply the amd.com/apply-gpu-config-profile with any string, eg. amd.com/apply-gpu-config-profile=apply
--  To change the configs, user can again apply the amd.com/gpu-config-profile node label with --overwrite=true option
+-  This will trigger the partition using that profile's config.
+```
+amd.com/gpu-config-profile=profile-1
+profile-1 : name of profile created in the configmap
+```
+-  To change the profile, user can re-apply the amd.com/gpu-config-profile node label with --overwrite=true option
 
 ## ConfigMap
 
@@ -40,12 +43,12 @@ data:
                   {
                       "computePartition": "CPX", 
                       "memoryPartition": "NPS1",
-                      "numGPUsAssigned": 1
+                      "numGPUsAssigned": 6
                   },
                   {
                       "computePartition": "SPX", 
                       "memoryPartition": "NPS1",
-                      "numGPUsAssigned": 4
+                      "numGPUsAssigned": 2
                   }
               ]
           },
@@ -58,7 +61,7 @@ data:
                   {
                       "computePartition": "CPX",
                       "memoryPartition": "NPS1",
-                      "numGPUsAssigned": 8
+                      "numGPUsAssigned": 5
                   }          
               ]
           }
@@ -74,11 +77,30 @@ data:
 - ```numGPUsAssigned``` number of GPUs to be partitioned on the node
 - NOTE: User can also create a heterogenous partitioning config profile by mentioning different sets, each set having info about compute/memory types and the number of GPUs to have that partition (refer ```default``` profile example)
 
+## Configmap Profile Checks
+
+- Let's assume a node with 8 GPUs in it.
+### List of profiles checks
+- Total number of all ```numGPUsAssigned``` values of a single profile must be equal to the total number of GPUs on the node.
+    - In ```default``` profile, you can observe that, we are requesting 6 GPUs of type CPX-NPS1 and 2 GPUs of SPX-NPS1 which is valid since it comes to a total of 8 GPUs
+    - If ```skippedGPUs``` field is present, we need to account for those IDs as well.
+    - Hence, ```Sum of numGPUsAssigned + len(skippedGPUs) = TotalGPUCount```
+- ```skippedGPUs``` field
+    - GPU IDs in the list can range from ```0``` to ```total number of GPUs - 1```
+    - Length of list must be equal to ```total number of GPUs``` - ```sum of numGPUsAssigned``` in that profile
+        - Example, in ```profile-1```, we have 5 GPUs set to CPX-NPS1 and exactly 3 more GPU IDs mentioned in the skip list
+- Compute types supported are SPX and CPX.
+    - Beta stage: DPX, QPX
+- Memory types supported are NPS1 and NPS4
+    - NPS4 is supported only for CPX compute type
+    - Combination of NPS1 and NPS4 memory types cannot be used in a single profile
+
+
 ## Supported Platforms
   - Ubuntu 22.04
 
 ## RDC version
-  - ROCM 6.3
+  - ROCM 6.3, ROCM 6.4
 
 ## Build and Run Instructions
 
@@ -101,32 +123,73 @@ data:
     cd $TOPDIR
     make dcm-docker
     ```
-### PARTITION GPU
--  GPU on the node cannot be partitioned on the go, we need to bring down all daemonsets using the GPU resource before partitioning. Hence we need to taint the node and add a toleration only to DCM node.
+### Partitioning GPUs using DCM
+-  GPU on the node cannot be partitioned on the go, we need to bring down all daemonsets using the GPU resource before partitioning. Hence we need to taint the node and the partition.
+- DCM pod comes with a toleration
+    - ```key: amd-dcm , value: up , Operator: Equal, effect: NoExecute ```
+    - User can specify additional tolerations if required
+
+### Steps for deploying DCM pod
+- Add tolerations to the required pods
+- Taint the node
+- Deploy the DCM pod using a custom resource file
+- Once partition is done, untaint the node
+
+#### Taint
 -  To TAINT a specific node for partitioning the GPU:
-kubectl taint nodes asrock-126-b3-3b dcm=up:NoExecute
--  Add toleration to amd-gpu-operator-node-feature-discovery-worker daemonset 
--  Add toleration to all other network related pods as well like flannel, proxy etc before tainting the node.
+```kubectl taint nodes asrock-126-b3-3b amd-dcm=up:NoExecute```
+
+#### Add toleration for the taint
+-  Since tainting a node will bring down all pods/daemonsets, we need to add toleration to the pods to prevent it from getting evicted.
+-  Add toleration to system level pods as well like flannel, proxy etc before tainting the node.
 ```
-kubectl get ds -n kube-amd-gpu amd-gpu-operator-node-feature-discovery-worker -o yaml > nfd.yaml
+Example:
+kubectl get ds -n kube-flannel kube-flannel-ds -o yaml > fnl.yaml
 
-amd@asrock-126-b3-3b:~$ vi nfd.yaml
+amd@asrock-126-b3-3b:~$ vi fnl.yaml
 
-#Add this under spec.template.spec object
+#Add this under the spec.template.spec.tolerations object
 tolerations:
-      - key: "dcm"
+      - key: "amd-dcm"
         operator: "Equal"
         value: "up"
         effect: "NoExecute"
 amd@asrock-126-b3-3b:~$ kubectl apply -f nfd.yaml
 ```
--  Create a CR to bring up the DCM daemonset along with the toleration for the taint
--  Taint the node
+#### Deploy DCM using a custom resource file
+-  Create a CR to bring up the DCM daemonset.
+-  Sample CR can be found in [_example/deviceConfigs_example.yaml_](https://github.com/pensando/device-config-manager/blob/main/example/deviceConfigs_example.yaml#L1)
+
+#### Untaint
 ```
-kubectl taint nodes asrock-126-b3-3b dcm=up:NoExecute
+kubectl taint nodes asrock-126-b3-3b amd-dcm:NoExecute-
 ```
 
-### Untaint
+## Deploying Standalone DCM on a cluster
+- Create a cluster and setup a worker node to deploy DCM.
+- DCM pod can be deployed using it's independent helm-charts as a standalone daemonset without the need of a GPU Operator.
+- Steps to deploy:
+    - Populate values.yaml to specify image name, tag , nodeSelector, etc.
+        - Please find an example values.yaml file in [_helm-charts/values.yaml_](https://github.com/pensando/device-config-manager/blob/main/helm-charts/values.yaml#L1)
+    - Run the below command to build the helm-chart using the values.yaml.
 ```
-kubectl taint nodes asrock-126-b3-3b dcm:NoExecute-
+make helm-install
+
+cd /home/amd/user/device-config-manager/helm-charts; helm lint
+==> Linting .
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+helm package helm-charts/ --destination ./helm-charts
+Successfully packaged chart and saved it to: helm-charts/device-config-manager-charts-v1.0.0.tgz
+cd /home/amd/user/device-config-manager/helm-charts; helm install amd-gpu-operator ./device-config-manager-charts-v1.0.0.tgz -n kube-amd-gpu --create-namespace -f values.yaml
+NAME: amd-gpu-operator
+LAST DEPLOYED: Thu Apr 3 04:57:29 2025
+NAMESPACE: kube-amd-gpu
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
 ```
+- This internally builds the helm-charts of DCM and then installs the charts in ```kube-amd-gpu``` namespace.
+- DCM daemonset pod is now up and users can perform the partitioning using the labels approach as mentioned above.
+- Users can also try the ```make helm-build``` command to build the helm-charts.
