@@ -34,6 +34,7 @@ const (
 	K8EventNonExistentProfile      = "NonExistentProfile"
 	K8EventSuccessfullyPartitioned = "SuccessfullyPartitioned"
 	K8EventPartitionNotNeeded      = "RequestedPartitionConfigAlreadyExists"
+	K8EventPartitionRetrying       = "PartitionRetrying"
 )
 
 var ValidComputePartitions = []string{"SPX", "CPX", "DPX", "QPX"}

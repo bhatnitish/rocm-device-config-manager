@@ -29,6 +29,9 @@ func main() {
 		log.Fatalf("err: %+v", err)
 	}
 
+	// Start the worker routine
+	go configmanager.Worker()
+
 	if selectedProfile != "" {
 		configmanager.PartitionGPU(selectedProfile)
 	}
