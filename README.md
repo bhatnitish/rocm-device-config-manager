@@ -4,18 +4,20 @@ Users will provide the GPU configurations using a K8s config-map. The config-map
 
 # Steps for partitioning using config map
 
-_Kubernets Node labels for GPU partitioning_
-```
+_Kubernetes Node labels for GPU partitioning_
+```bash
 dcm.amd.com/gpu-config-profile=<profile_name>
 ```
 
 -  Create a config map and apply it on the node.
 -  Once applied, user has to add the label amd.com/gpu-config-profile to specify the profile name to be used from the config map.
 -  This will trigger the partition using that profile's config.
-```
+
+```bash
 amd.com/gpu-config-profile=profile-1
 profile-1 : name of profile created in the configmap
 ```
+
 -  To change the profile, user can re-apply the amd.com/gpu-config-profile node label with --overwrite=true option
 
 ## ConfigMap
@@ -23,7 +25,7 @@ profile-1 : name of profile created in the configmap
 - Please find an example config map in [_example/configmap.yaml_](https://github.com/pensando/device-config-manager/blob/main/example/configmap.yaml#L1)
 - Example config map and it's meaning
 
-```
+```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -69,26 +71,27 @@ data:
     }
 
 ```
-- ```gpu-config-profiles``` defines a set of partitioning config profiles from which the user can choose the profile he wants to apply.
-- ```default``` and ```profile-1``` are example profile names.
-- ```skippedGPUs``` (Optional) list of GPU IDs to skip partitioning
-- ```computePartition``` compute partition type
-- ```memoryPartition``` memory partition type
-- ```numGPUsAssigned``` number of GPUs to be partitioned on the node
-- NOTE: User can also create a heterogenous partitioning config profile by mentioning different sets, each set having info about compute/memory types and the number of GPUs to have that partition (refer ```default``` profile example)
+
+- `gpu-config-profiles` defines a set of partitioning config profiles from which the user can choose the profile he wants to apply.
+- `default` and `profile-1` are example profile names.
+- `skippedGPUs` (Optional) list of GPU IDs to skip partitioning
+- `computePartition` compute partition type
+- `memoryPartition` memory partition type
+- `numGPUsAssigned` number of GPUs to be partitioned on the node
+- NOTE: User can also create a heterogenous partitioning config profile by mentioning different sets, each set having info about compute/memory types and the number of GPUs to have that partition (refer `default` profile example)
 
 ## Configmap Profile Checks
 
 - Let's assume a node with 8 GPUs in it.
 ### List of profiles checks
-- Total number of all ```numGPUsAssigned``` values of a single profile must be equal to the total number of GPUs on the node.
-    - In ```default``` profile, you can observe that, we are requesting 6 GPUs of type CPX-NPS1 and 2 GPUs of SPX-NPS1 which is valid since it comes to a total of 8 GPUs
-    - If ```skippedGPUs``` field is present, we need to account for those IDs as well.
-    - Hence, ```Sum of numGPUsAssigned + len(skippedGPUs) = TotalGPUCount```
-- ```skippedGPUs``` field
-    - GPU IDs in the list can range from ```0``` to ```total number of GPUs - 1```
-    - Length of list must be equal to ```total number of GPUs``` - ```sum of numGPUsAssigned``` in that profile
-        - Example, in ```profile-1```, we have 5 GPUs set to CPX-NPS1 and exactly 3 more GPU IDs mentioned in the skip list
+- Total number of all `numGPUsAssigned` values of a single profile must be equal to the total number of GPUs on the node.
+    - In `default` profile, you can observe that, we are requesting 6 GPUs of type CPX-NPS1 and 2 GPUs of SPX-NPS1 which is valid since it comes to a total of 8 GPUs
+    - If `skippedGPUs` field is present, we need to account for those IDs as well.
+    - Hence, `Sum of numGPUsAssigned + len(skippedGPUs) = TotalGPUCount`
+- `skippedGPUs` field
+    - GPU IDs in the list can range from `0` to `total number of GPUs - 1`
+    - Length of list must be equal to `total number of GPUs` - `sum of numGPUsAssigned` in that profile
+        - Example, in `profile-1`, we have 5 GPUs set to CPX-NPS1 and exactly 3 more GPU IDs mentioned in the skip list
 - Compute types supported are SPX and CPX.
     - Beta stage: DPX, QPX
 - Memory types supported are NPS1 and NPS4
@@ -106,27 +109,29 @@ data:
 
 ### Build dcm binary and bring up dcm container
 -  Run the following make target in the TOP directory:
-   	```
-    cd $TOPDIR
-    make all
-    ```
+```bash
+cd $TOPDIR
+make all
+```
 ### Build amddcm application binary only
 -  Run the following make target in the TOP directory. This will also generate the required protos to build the DCM application
    	binary.
-   	```
-    cd $TOPDIR
-    make dcm
-    ```
+```bash
+cd $TOPDIR
+make dcm
+```
+
 ### Build dcm container only
 -  Run the following make target in the TOP directory:
-   	```
-    cd $TOPDIR
-    make dcm-docker
-    ```
+```bash
+cd $TOPDIR
+make dcm-docker
+```
+
 ### Partitioning GPUs using DCM
 -  GPU on the node cannot be partitioned on the go, we need to bring down all daemonsets using the GPU resource before partitioning. Hence we need to taint the node and the partition.
 - DCM pod comes with a toleration
-    - ```key: amd-dcm , value: up , Operator: Equal, effect: NoExecute ```
+    - `key: amd-dcm , value: up , Operator: Equal, effect: NoExecute `
     - User can specify additional tolerations if required
 
 ### Steps for deploying DCM pod
@@ -137,12 +142,14 @@ data:
 
 #### Taint
 -  To TAINT a specific node for partitioning the GPU:
-```kubectl taint nodes asrock-126-b3-3b amd-dcm=up:NoExecute```
+```bash
+kubectl taint nodes asrock-126-b3-3b amd-dcm=up:NoExecute
+```
 
 #### Add toleration for the taint
 -  Since tainting a node will bring down all pods/daemonsets, we need to add toleration to the pods to prevent it from getting evicted.
 -  Add toleration to system level pods as well like flannel, proxy etc before tainting the node.
-```
+```bash
 Example:
 kubectl get ds -n kube-flannel kube-flannel-ds -o yaml > fnl.yaml
 
@@ -161,7 +168,7 @@ amd@asrock-126-b3-3b:~$ kubectl apply -f nfd.yaml
 -  Sample CR can be found in [_example/deviceConfigs_example.yaml_](https://github.com/pensando/device-config-manager/blob/main/example/deviceConfigs_example.yaml#L1)
 
 #### Untaint
-```
+```bash
 kubectl taint nodes asrock-126-b3-3b amd-dcm:NoExecute-
 ```
 
@@ -172,7 +179,8 @@ kubectl taint nodes asrock-126-b3-3b amd-dcm:NoExecute-
     - Populate values.yaml to specify image name, tag , nodeSelector, etc.
         - Please find an example values.yaml file in [_helm-charts/values.yaml_](https://github.com/pensando/device-config-manager/blob/main/helm-charts/values.yaml#L1)
     - Run the below command to build the helm-chart using the values.yaml.
-```
+
+```bash
 make helm-install
 
 cd /home/amd/user/device-config-manager/helm-charts; helm lint
@@ -190,6 +198,10 @@ STATUS: deployed
 REVISION: 1
 TEST SUITE: None
 ```
-- This internally builds the helm-charts of DCM and then installs the charts in ```kube-amd-gpu``` namespace.
+- This internally builds the helm-charts of DCM and then installs the charts in `kube-amd-gpu` namespace.
 - DCM daemonset pod is now up and users can perform the partitioning using the labels approach as mentioned above.
-- Users can also try the ```make helm-build``` command to build the helm-charts.
+- Users can also try the `make helm-build` command to build the helm-charts.
+
+## License
+
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
