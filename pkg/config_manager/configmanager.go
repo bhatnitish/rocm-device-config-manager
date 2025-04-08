@@ -358,6 +358,14 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 
 	log.Print("AMD SMI Initialized successfully.")
 	sockets, totalGPUCount = amdsmiGetSocketHandles()
+	if totalGPUCount == 0 {
+		partStatus.Reason = "Partition failed with reason: 0 sockets found"
+		generateK8sEvent(errors.New("no sockets found"), globals.K8EventAMDSMIAPIFailure, partStatus)
+		err := kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
+		if err != nil {
+			log.Printf("Error adding status node label: %s\n", err.Error())
+		}
+	}
 	var processor_handles []C.amdsmi_processor_handle
 	var device_count int
 	var gpu_id int
@@ -368,12 +376,9 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	profiles := profile.Profiles
 	idx := 0
 
-	partStatus.SelectedProfile = selectedProfile
-	partStatus.GPUStatus = nil
 	err := validateProfile(profile, totalGPUCount)
 	podList := kc.GetPods(nodeName)
 	if err != nil {
-		partStatus.FinalStatus = "Failure"
 		partStatus.Reason = fmt.Sprintf("Partition failed with reason: %v", err)
 		generateK8sEvent(err, globals.K8EventInvalidProfile, partStatus)
 		err = kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
@@ -384,8 +389,6 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	}
 	gpu_ids_list := createGPUIDList(profile.Filters.Id, totalGPUCount)
 	// Allocating memory based on gpuCount
-	partStatus.FinalStatus = "Success"
-	partStatus.Reason = "All GPUs were successfully partitioned"
 	partStatus.GPUStatus = make([]types.GPUPartitionStatus, len(gpu_ids_list))
 	partition_needed := false
 	partition_failed = false
@@ -403,6 +406,12 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 			processor_type, err := amdsmiGetProcessorType(processor_handle)
 			if err != nil {
 				log_e.Errorf("Error %v", err)
+				partStatus.Reason = fmt.Sprintf("AMD-SMI API error : %v", err)
+				generateK8sEvent(err, globals.K8EventAMDSMIAPIFailure, partStatus)
+				err := kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
+				if err != nil {
+					log.Printf("Error adding status node label: %s\n", err.Error())
+				}
 				return
 			}
 			if processor_type != C.AMDSMI_PROCESSOR_TYPE_AMD_GPU {
@@ -475,7 +484,6 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 			}
 			if partition_failed {
 				populateGPUEventStatus(gpu_id, partitionType, "Failure", fmt.Sprintf("Partition failed with reason: %v", partition_err_reason), idx)
-				partStatus.FinalStatus = "Failure"
 				partStatus.Reason = fmt.Sprintf("Partition failed with reason: %v", partition_err_reason)
 			} else {
 				populateGPUEventStatus(gpu_id, partitionType, "Success", "Successfully partitioned", idx)
@@ -489,9 +497,10 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 
 	if partition_failed {
 		log.Printf("Partition failed.")
-		generateK8sEvent(errors.New(partition_err_reason), globals.K8EventPartitionFailed, partStatus)
 	} else {
+		partStatus.FinalStatus = "Success"
 		if partition_needed {
+			partStatus.Reason = "All GPUs were successfully partitioned"
 			log.Printf("Partition completed successfully")
 			generateK8sEvent(nil, globals.K8EventSuccessfullyPartitioned, partStatus)
 		} else {
@@ -573,9 +582,18 @@ func PartitionGPU(selectedProfile string) error {
 	var profile *partition_pb.GPUConfigProfile
 	var exists bool
 
+	partStatus.SelectedProfile = selectedProfile
+	partStatus.GPUStatus = nil
+	partStatus.FinalStatus = "Failure"
 	log.Printf("Partitioning the GPU\n")
 	if _, err := os.Stat(globals.JsonFilePath); os.IsNotExist(err) {
 		log.Printf("ConfigMap not present, please configure a configmap to proceed")
+		partStatus.Reason = "Configmap does not exist"
+		generateK8sEvent(errors.New("configmap not found"), globals.K8EventConfigMapNotPresent, partStatus)
+		err = kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
+		if err != nil {
+			log.Printf("Error adding status node label: %s\n", err.Error())
+		}
 		return nil
 	} else {
 		log.Printf("Reading configmap: %v\n", globals.JsonFilePath)
@@ -586,6 +604,12 @@ func PartitionGPU(selectedProfile string) error {
 	err := json.Unmarshal(file, &profiles)
 	if err != nil {
 		log_e.Errorf("Failed to unmarshal JSON: %v", err)
+		partStatus.Reason = "Invalid JSON inside configmap"
+		generateK8sEvent(errors.New("invalid json in configmap"), globals.K8EventInvalidJSONInConfigMap, partStatus)
+		err = kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
+		if err != nil {
+			log.Printf("Error adding status node label: %s\n", err.Error())
+		}
 		return nil
 	}
 
@@ -594,10 +618,7 @@ func PartitionGPU(selectedProfile string) error {
 		log.Printf("Profile found: %v\n", profile)
 	} else {
 		log.Printf("Profile %v not found.\n", selectedProfile)
-		partStatus.FinalStatus = "Failure"
 		partStatus.Reason = "Profile does not exist in the configmap"
-		partStatus.SelectedProfile = selectedProfile
-		partStatus.GPUStatus = nil
 		generateK8sEvent(errors.New("profile not found"), globals.K8EventNonExistentProfile, partStatus)
 		err = kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
 		if err != nil {
@@ -610,11 +631,16 @@ func PartitionGPU(selectedProfile string) error {
 	ret := C.amdsmi_init(C.AMDSMI_INIT_AMD_GPUS)
 	if ret != C.AMDSMI_STATUS_SUCCESS {
 		log_e.Errorf("Failed to initialize AMD SMI!")
+		partStatus.Reason = "AMD-SMI API error : Failed to initialize AMD SMI!"
+		generateK8sEvent(err, globals.K8EventAMDSMIAPIFailure, partStatus)
+		err := kc.AddNodeLabel(nodeName, "dcm.amd.com/gpu-config-profile-state", "failure")
+		if err != nil {
+			log.Printf("Error adding status node label: %s\n", err.Error())
+		}
 		return nil
 	}
 	defer shutDownAMDSMI()
 	amdSMIHelper(selectedProfile, profile)
-	log.Printf("partStatus.GPUStatus %v", partStatus.GPUStatus)
 	if partition_failed {
 		return errors.New("partition failed")
 	} else {
@@ -703,6 +729,7 @@ func retryPartition(ctx context.Context, selectedProfile string) {
 
 		// from here this
 		if time.Now().After(expiration) {
+			generateK8sEvent(errors.New("partition failed"), globals.K8EventPartitionFailed, partStatus)
 			log.Println("Retry loop expired after retrying for 30 mins")
 			return
 		}
@@ -712,17 +739,15 @@ func retryPartition(ctx context.Context, selectedProfile string) {
 		if err := PartitionGPU(selectedProfile); err != nil {
 			log.Printf("Error occurred in PartitionGPU: %v\n", err)
 			log.Println("Waiting for 1 minute before retrying...")
-
+			if count == 1 {
+				count = count + 1
+				partStatus.FinalStatus = "Partition failed, retrying."
+				partStatus.Reason = fmt.Sprintf("Partition retrying for profile: %v", selectedProfile)
+				generateK8sEvent(errors.New("partition retrying"), globals.K8EventPartitionRetrying, partStatus)
+			}
 			// Wait for 1 minute or exit early if context is canceled
 			select {
 			case <-time.After(1 * time.Minute): // Wait 1 minute for retry
-				if count == 1 {
-					count = count + 1
-					partStatus.FinalStatus = "Partition failed, retrying."
-					partStatus.GPUStatus = nil
-					partStatus.Reason = fmt.Sprintf("Partition retrying for profile: %v", selectedProfile)
-					generateK8sEvent(errors.New("partition retrying"), globals.K8EventPartitionRetrying, partStatus)
-				}
 				// Proceed to the next iteration of the retry loop
 			case <-ctx.Done(): // Exit the retry loop if context is canceled
 				log.Println("Aborting retry loop during wait due to cancellation")

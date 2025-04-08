@@ -35,6 +35,9 @@ const (
 	K8EventSuccessfullyPartitioned = "SuccessfullyPartitioned"
 	K8EventPartitionNotNeeded      = "RequestedPartitionConfigAlreadyExists"
 	K8EventPartitionRetrying       = "PartitionRetrying"
+	K8EventConfigMapNotPresent     = "ConfigMapNotPresent"
+	K8EventInvalidJSONInConfigMap  = "InvalidJSONInConfigMap"
+	K8EventAMDSMIAPIFailure        = "AMDSMIAPIFailure"
 )
 
 var ValidComputePartitions = []string{"SPX", "CPX", "DPX", "QPX"}
