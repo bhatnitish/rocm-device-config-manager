@@ -155,7 +155,7 @@ func StartFileWatcher(selectedProfile string) {
 						log_e.Errorf("err: %+v", err)
 					}
 					if selectedProfile != "" {
-						triggerRetryLoop(selectedProfile, "configmap watcher")
+						TriggerRetryLoop(selectedProfile, "configmap watcher")
 					}
 				} else {
 					log.Printf("Event %v", event)
@@ -659,7 +659,7 @@ func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
 					log_e.Errorf("err: %+v", err)
 				}
 				if selectedProfile != "" {
-					triggerRetryLoop(selectedProfile, "nodelabel watcher")
+					TriggerRetryLoop(selectedProfile, "nodelabel watcher")
 				}
 			}
 		}
@@ -713,7 +713,7 @@ func NodeLabelWatcher() {
 	<-make(chan struct{})
 }
 
-func retryPartition(ctx context.Context, selectedProfile string) {
+func RetryPartition(ctx context.Context, selectedProfile string) {
 	defer wg.Done()
 	expiration := time.Now().Add(30 * time.Minute)
 	count := 1
@@ -775,13 +775,13 @@ func Worker() {
 		cancelFunc = cancel
 		wg.Add(1)
 
-		fmt.Println("Starting new retryPartition")
-		go retryPartition(ctx, prof)
+		fmt.Println("Starting new RetryPartition")
+		go RetryPartition(ctx, prof)
 		mu.Unlock()
 	}
 }
 
-func triggerRetryLoop(selectedProfile string, funcname string) {
+func TriggerRetryLoop(selectedProfile string, funcname string) {
 	select {
 	case retryCh <- selectedProfile: // Signal a retry request
 		log.Printf("Triggering new retry loop from %s\n", funcname)

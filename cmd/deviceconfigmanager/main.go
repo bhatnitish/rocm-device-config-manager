@@ -33,7 +33,7 @@ func main() {
 	go configmanager.Worker()
 
 	if selectedProfile != "" {
-		configmanager.PartitionGPU(selectedProfile)
+		configmanager.TriggerRetryLoop(selectedProfile, "initial partitioning")
 	}
 
 	// starting a seperate go routine for file watcher
