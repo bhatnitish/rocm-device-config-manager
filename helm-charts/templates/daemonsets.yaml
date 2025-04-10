@@ -57,6 +57,8 @@ spec:
             name: dev-volume
           - mountPath: /sys
             name: sys-volume
+          - mountPath: /lib/modules
+            name: libmodules
           - mountPath: /var/lib/
             name: health
           - mountPath: /etc/config-manager/
@@ -76,6 +78,10 @@ spec:
           path: /sys
           type: Directory
         name: sys-volume
+      - hostPath:
+          path: /lib/modules
+          type: Directory
+        name: libmodules
       - hostPath:
           path: /var/lib/
           type: Directory
