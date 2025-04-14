@@ -62,6 +62,38 @@ BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
 AMD_SMI_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_VERSION}/lib
 PKG_PATH := ${TOP_DIR}/debian/usr/local/bin
 
+# External repo builders
+AMDSMI_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.4
+AMDSMI_BASE_UBUNTU22 ?= ubuntu:22.04
+AMDSMI_BASE_UBUNTU24 ?= ubuntu:24.04
+AMDSMi_BASE_AZURE ?= mcr.microsoft.com/azurelinux/base/core:3.0
+AMDSMI_BUILDER_IMAGE ?= amdsmi-builder:rhel9
+AMDSMI_BUILDER_UB22_IMAGE ?= amdsmi-builder:ub22
+AMDSMI_BUILDER_UB24_IMAGE ?= amdsmi-builder:ub24
+AMDSMI_BUILDER_AZURE_IMAGE ?= amdsmi-builder:azure
+
+# amdsmi builder base images and tags
+export AMDSMI_BASE_IMAGE
+export AMDSMI_BASE_UBUNTU22
+export AMDSMI_BASE_UBUNTU24
+export AMDSMI_BASE_AZURE
+
+# gpuagent builder base images and tags
+export AMDSMI_BUILDER_IMAGE
+export AMDSMI_BUILDER_UB22_IMAGE
+export AMDSMI_BUILDER_UB24_IMAGE
+export AMDSMI_BUILDER_AZURE_IMAGE
+
+# library branch to build amdsmi libraries for gpuagent
+AMDSMI_BRANCH ?= amd-mainline
+AMDSMI_COMMIT ?= 61ea0f2fb86b337d0efaef4337e95bc24df2a599
+
+export ${AMDSMI_BRANCH}
+export ${AMDSMI_COMMIT}
+
+include Makefile.build
+include Makefile.compile
+
 ##################
 # Makefile targets
 #
@@ -226,3 +258,12 @@ checks: fmt
 .PHONY: e2e
 e2e:
 	${MAKE} -C test/k8s-e2e all TOP_DIR=$(TOP_DIR)
+
+.PHONY: update-submodules
+update-submodules:
+	git submodule update --remote --recursive
+
+.PHONY: build-all
+build-all: 
+	${MAKE} amdsmi-compile-rhel amdsmi-compile-ub22 amdsmi-compile-ub24 amdsmi-compile-azure
+	@echo "Docker image build is available under docker/ directory"
