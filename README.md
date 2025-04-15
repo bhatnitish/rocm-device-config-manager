@@ -22,7 +22,7 @@ profile-1 : name of profile created in the configmap
 
 ## ConfigMap
 
-- Please find an example config map in [_example/configmap.yaml_](https://github.com/pensando/device-config-manager/blob/main/example/configmap.yaml#L1)
+- Please find an example config map in [_example/configmap.yaml_](https://github.com/ROCm/device-config-manager/blob/main/example/configmap.yaml#L1)
 - Example config map and it's meaning
 
 ```yaml
@@ -165,7 +165,7 @@ amd@asrock-126-b3-3b:~$ kubectl apply -f nfd.yaml
 ```
 #### Deploy DCM using a custom resource file
 -  Create a CR to bring up the DCM daemonset.
--  Sample CR can be found in [_example/deviceConfigs_example.yaml_](https://github.com/pensando/device-config-manager/blob/main/example/deviceConfigs_example.yaml#L1)
+-  Sample CR can be found in [_example/deviceConfigs_example.yaml_](https://github.com/ROCm/device-config-manager/blob/main/example/deviceConfigs_example.yaml#L1)
 
 #### Untaint
 ```bash
@@ -177,7 +177,7 @@ kubectl taint nodes asrock-126-b3-3b amd-dcm:NoExecute-
 - DCM pod can be deployed using it's independent helm-charts as a standalone daemonset without the need of a GPU Operator.
 - Steps to deploy:
     - Populate values.yaml to specify image name, tag , nodeSelector, etc.
-        - Please find an example values.yaml file in [_helm-charts/values.yaml_](https://github.com/pensando/device-config-manager/blob/main/helm-charts/values.yaml#L1)
+        - Please find an example values.yaml file in [_helm-charts/values.yaml_](https://github.com/ROCm/device-config-manager/blob/main/helm-charts/values.yaml#L1)
     - Run the below command to build the helm-chart using the values.yaml.
 
 ```bash

@@ -1,3 +1,40 @@
+-include dev.env
+
+## Set all the environment variables here
+# Docker Registry
+DOCKER_REGISTRY ?= docker.io/rocm
+
+# Build Container environment
+DOCKER_BUILDER_TAG ?= v1.0
+BUILD_BASE_IMAGE ?= ubuntu:22.04
+CUR_USER:=$(shell whoami)
+CUR_TIME:=$(shell date +%Y-%m-%d_%H.%M.%S)
+CONTAINER_NAME:=${CUR_USER}_dcm-bld
+BUILD_CONTAINER ?= $(DOCKER_REGISTRY)/device-config-manager-build:$(DOCKER_BUILDER_TAG)
+CONTAINER_WORKDIR := /usr/src/github.com/ROCm/device-config-manager
+
+# Dcm container environment
+DCM_IMAGE_TAG ?= latest
+DCM_IMAGE_NAME ?= device-config-manager
+RHEL_BASE_MIN_IMAGE ?= registry.access.redhat.com/ubi9/ubi-minimal:9.4
+BUILD_DATE ?= $(shell date   +%Y-%m-%dT%H:%M:%S%z)
+GIT_COMMIT ?= $(shell git rev-list -1 HEAD --abbrev-commit)
+VERSION ?=$(RELEASE)
+
+RHEL_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.4
+# RHEL BaseOS, AppStream, CRB repository base image
+RHEL_REPO_URL ?= https://cdn.redhat.com
+
+# export environment variables used across project
+export DOCKER_REGISTRY
+export BUILD_CONTAINER
+export BUILD_BASE_IMAGE
+export DCM_IMAGE_NAME
+export DCM_IMAGE_TAG
+export RHEL_BASE_IMAGE
+export RHEL_BASE_MIN_IMAGE
+export RHEL_REPO_URL
+
 TOP_DIR := $(PWD)
 HELM_CHARTS_DIR := $(TOP_DIR)/helm-charts
 PKG_LIB_PATH := ${TOP_DIR}/debian/usr/local/
@@ -22,6 +59,52 @@ BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
 AMD_SMI_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_VERSION}/lib
 PKG_PATH := ${TOP_DIR}/debian/usr/local/bin
 
+##################
+# Makefile targets
+#
+##@ QuickStart
+.PHONY: default
+default: build-dev-container ## Quick start to build everything from docker shell container
+	${MAKE} docker-compile
+
+.PHONY: docker-shell
+docker-shell:
+	docker run --rm -it --privileged \
+		--name ${CONTAINER_NAME} \
+		-e "USER_NAME=$(shell whoami)" \
+		-e "USER_UID=$(shell id -u)" \
+		-e "USER_GID=$(shell id -g)" \
+		-e "GIT_COMMIT=${GIT_COMMIT}" \
+		-e "GIT_VERSION=${GIT_VERSION}" \
+		-e "BUILD_DATE=${BUILD_DATE}" \
+		-v $(CURDIR):$(CONTAINER_WORKDIR) \
+		-v $(HOME)/.ssh:/home/$(shell whoami)/.ssh \
+		-w $(CONTAINER_WORKDIR) \
+		$(BUILD_CONTAINER) \
+		bash -c "cd $(CONTAINER_WORKDIR) && git config --global --add safe.directory $(CONTAINER_WORKDIR) && bash"
+
+.PHONY: docker-compile
+docker-compile:
+	docker run --rm -it --privileged \
+		--name ${CONTAINER_NAME} \
+		-e "USER_NAME=$(shell whoami)" \
+		-e "USER_UID=$(shell id -u)" \
+		-e "USER_GID=$(shell id -g)" \
+		-e "GIT_COMMIT=${GIT_COMMIT}" \
+		-e "GIT_VERSION=${GIT_VERSION}" \
+		-e "BUILD_DATE=${BUILD_DATE}" \
+		-v $(CURDIR):$(CONTAINER_WORKDIR) \
+		-v $(HOME)/.ssh:/home/$(shell whoami)/.ssh \
+		-w $(CONTAINER_WORKDIR) \
+		$(BUILD_CONTAINER) \
+		bash -c "cd $(CONTAINER_WORKDIR) && source ~/.bashrc && git config --global --add safe.directory $(CONTAINER_WORKDIR) && make all"
+
+# create development build container only if there is changes done on
+# tools/base-image/Dockerfile
+.PHONY: build-dev-container
+build-dev-container:
+	${MAKE} -C tools/base-image all INSECURE_REGISTRY=$(INSECURE_REGISTRY)
+
 .PHONY:clean
 clean:
 	rm -rf pkg/configmanager/bin
@@ -44,7 +127,7 @@ all:
 	${MAKE} -C docker TOP_DIR=$(TOP_DIR)
 
 copyrights:
-	GOFLAGS=-mod=mod go run tools/build/copyright/main.go && ./tools/build/check-local-files.sh
+	GOFLAGS=-mod=mod go run tools/build/copyright/main.go && ${MAKE} fmt && ./tools/build/check-local-files.sh
 
 .PHONY: helm-lint
 helm-lint:

@@ -14,5 +14,5 @@ targets:
       - build-debian-package-ub22.04
 
 image:
-  bind_dir: "/go/src/github.com/pensando/device-config-manager"
-  work_dir: "/go/src/github.com/pensando/device-config-manager"
+  bind_dir: "/go/src/github.com/ROCm/device-config-manager"
+  work_dir: "/go/src/github.com/ROCm/device-config-manager"

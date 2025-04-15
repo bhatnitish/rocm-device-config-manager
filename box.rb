@@ -55,7 +55,7 @@ end
 
 env GOPATH: "/usr"
 env GOFLAGS: "-mod=vendor"
-run "git config --global --add safe.directory ${GOPATH}/src/github.com/pensando/device-config-manager"
+run "git config --global --add safe.directory ${GOPATH}/src/github.com/ROCm/device-config-manager"
 
 # A scratch pad file for exporting some host/workspace particulars into container, to be used for
 # recording them into build packaging.

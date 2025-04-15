@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -x
 set -euo pipefail
-dir=/usr/src/github.com/pensando/device-config-manager
+dir=/usr/src/github.com/ROCm/device-config-manager
 netns=/var/run/netns
 dockerdir=/etc/docker
 

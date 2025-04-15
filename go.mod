@@ -1,4 +1,4 @@
-module github.com/pensando/device-config-manager
+module github.com/ROCm/device-config-manager
 
 go 1.23.0
 

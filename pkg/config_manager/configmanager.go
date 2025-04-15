@@ -35,11 +35,11 @@ import (
 	"time"
 	"unsafe"
 
+	partition_pb "github.com/ROCm/device-config-manager/gen/partition"
+	"github.com/ROCm/device-config-manager/pkg/amdgpu/k8sclient"
+	"github.com/ROCm/device-config-manager/pkg/config_manager/globals"
+	types "github.com/ROCm/device-config-manager/pkg/config_manager/interface"
 	"github.com/fsnotify/fsnotify"
-	partition_pb "github.com/pensando/device-config-manager/gen/partition"
-	"github.com/pensando/device-config-manager/pkg/amdgpu/k8sclient"
-	"github.com/pensando/device-config-manager/pkg/config_manager/globals"
-	types "github.com/pensando/device-config-manager/pkg/config_manager/interface"
 	log_e "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,7 +125,8 @@ func StartFileWatcher(selectedProfile string) {
 	log.Printf("Adding file watcher for %v", globals.JsonFilePath)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return
 	}
 	defer watcher.Close()
 
@@ -135,7 +136,8 @@ func StartFileWatcher(selectedProfile string) {
 	// Add the JSON file to the watcher
 	err = watcher.Add(globals.JsonFilePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return
 	}
 
 	log.Printf("starting file watcher for %v", globals.JsonFilePath)

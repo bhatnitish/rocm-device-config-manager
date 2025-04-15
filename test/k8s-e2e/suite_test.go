@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pensando/device-config-manager/test/k8s-e2e/clients"
+	"github.com/ROCm/device-config-manager/test/k8s-e2e/clients"
 	"github.com/stretchr/testify/assert"
 	. "gopkg.in/check.v1"
 	"k8s.io/client-go/tools/clientcmd"
@@ -18,7 +18,7 @@ import (
 var kubeConfig = flag.String("kubeconfig", filepath.Join(homedir.HomeDir(), ".kube", "config"), "absolute path to the kubeconfig file")
 var helmChart = flag.String("helmchart", "", "helmchart")
 var exporterNS = flag.String("namespace", "kube-amd-gpu", "namespace")
-var registry = flag.String("registry", "registry.test.pensando.io:5000/device-config-manager", "dcm container registry")
+var registry = flag.String("registry", "docker.io/rocm/device-config-manager", "dcm container registry")
 var imageTag = flag.String("imagetag", "v1", "dcm image version/tag")
 var platform = flag.String("platform", "k8s", "k8s/openshift")
 

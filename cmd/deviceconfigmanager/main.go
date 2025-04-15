@@ -17,16 +17,24 @@ package main
 
 import (
 	"log"
+	"os"
 
-	configmanager "github.com/pensando/device-config-manager/pkg/config_manager"
+	configmanager "github.com/ROCm/device-config-manager/pkg/config_manager"
 )
 
 func main() {
 
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+		log.Println("Running inside a Kubernetes pod")
+	} else {
+		log.Println("Not running inside a Kubernetes pod")
+		<-make(chan struct{})
+	}
 	//Read profile from node labeller
 	selectedProfile, err := configmanager.GetPartitionProfile()
 	if err != nil {
-		log.Fatalf("err: %+v", err)
+		log.Printf("err: %+v", err)
+		return
 	}
 
 	// Start the worker routine

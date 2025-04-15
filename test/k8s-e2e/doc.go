@@ -1,7 +1,7 @@
 package k8e2e
 
 import (
-	"github.com/pensando/device-config-manager/test/k8s-e2e/clients"
+	"github.com/ROCm/device-config-manager/test/k8s-e2e/clients"
 	restclient "k8s.io/client-go/rest"
 )
 

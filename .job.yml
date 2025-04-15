@@ -2,32 +2,32 @@
 version: 2.0
 builds:
   build-debian-package-ub22.04:
-    commands: [ "sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make pkg"]
+    commands: [ "sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make pkg"]
     owners: ["email:nkomarla@amd.com"]
     artifacts:
         - /device-config-manager/bin/amdgpu-configmanager_22.04_amd64.deb
 
   build-device-config-manager:
-    commands: ["sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make dcm"]
+    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make dcm"]
     owners: ["email:nkomarla@amd.com"]
     artifacts:
         - /device-config-manager/bin/device-config-manager
 
   build-device-config-manager-docker:
-    commands: ["sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make all"]
+    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make all"]
     owners: ["email:nkomarla@amd.com"]
     artifacts:
         - /device-config-manager/docker/obj/config-manager-latest.tgz
 
   build-helm-artifact:
-    commands: ["sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && make helm-build"]
+    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make helm-build"]
     owners: ["email:nkomarla@amd.com"]
     artifacts:
         - /device-config-manager/helm-charts/device-config-manager-charts-v1.0.0.tgz
 
 targets:
   api-checks:
-    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/pensando/device-config-manager && \
+    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && \
                                     make checks"]
     owners: ["email:nkomarla@amd.com"]
     area:
