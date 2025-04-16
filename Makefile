@@ -88,6 +88,9 @@ export AMDSMI_BUILDER_AZURE_IMAGE
 AMDSMI_BRANCH ?= amd-mainline
 AMDSMI_COMMIT ?= 61ea0f2fb86b337d0efaef4337e95bc24df2a599
 
+EXCLUDE_PATTERN := "libamdsmi"
+GO_PKG := $(shell go list ./...  2>/dev/null | grep github.com/ROCm/device-config-manager | egrep -v ${EXCLUDE_PATTERN})
+
 export ${AMDSMI_BRANCH}
 export ${AMDSMI_COMMIT}
 
@@ -236,11 +239,12 @@ pkg: pkg-clean
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
-	go fmt ./...
+	go fmt $(GO_PKG)
 
 .PHONY: vet
 vet: ## Run go vet against code.
-	go vet ./...
+	$(info +++ govet sources)
+	go vet -source $(GO_PKG)
 
 .PHONY:loadgpu
 loadgpu:
