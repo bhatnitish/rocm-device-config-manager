@@ -78,13 +78,13 @@ export AMDSMI_BASE_UBUNTU22
 export AMDSMI_BASE_UBUNTU24
 export AMDSMI_BASE_AZURE
 
-# gpuagent builder base images and tags
+# AMD SMI builder base images and tags
 export AMDSMI_BUILDER_IMAGE
 export AMDSMI_BUILDER_UB22_IMAGE
 export AMDSMI_BUILDER_UB24_IMAGE
 export AMDSMI_BUILDER_AZURE_IMAGE
 
-# library branch to build amdsmi libraries for gpuagent
+# library branch to build amdsmi libraries
 AMDSMI_BRANCH ?= amd-mainline
 AMDSMI_COMMIT ?= 61ea0f2fb86b337d0efaef4337e95bc24df2a599
 
@@ -146,20 +146,20 @@ clean:
 
 .PHONY: dcm
 dcm:
-	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
+	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
 
 .PHONY: dcm-docker
 dcm-docker:
-	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
+	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
 
 .PHONY: docker-publish
 docker-publish:
-	${MAKE} -C docker docker-publish TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
+	${MAKE} -C docker docker-publish TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
 
 .PHONY:all
 all:
-	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
-	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
+	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
+	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
 
 copyrights:
 	GOFLAGS=-mod=mod go run tools/build/copyright/main.go && ${MAKE} fmt && ./tools/build/check-local-files.sh

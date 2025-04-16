@@ -3,7 +3,6 @@
 SMILIB_CONTAINER_WORKDIR := /usr/src/github.com/ROCm/device-config-manager/
 AMDMSMI_SRC_DIR := $(TOP_DIR)/
 AMDSMI_BUILD_DIR := $(TOP_DIR)/tools/smilib-builderimage/
-ASSET_COPY_SCRIPT := $(TOP_DIR)/tools/scripts/copy_buildasset_gpuagent.sh
 
 # this is usually required once for expediting the compilation
 
