@@ -7,11 +7,23 @@ builds:
     artifacts:
         - /device-config-manager/bin/amdgpu-configmanager_22.04_amd64.deb
 
-  build-device-config-manager:
+  build-debian-package-ub24.04:
+    commands: [ "sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make UBUNTU_VERSION=noble pkg"]
+    owners: ["email:nkomarla@amd.com"]
+    artifacts:
+        - /device-config-manager/bin/amdgpu-configmanager_24.04_amd64.deb
+
+  build-device-config-manager-ubi22:
     commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make dcm"]
     owners: ["email:nkomarla@amd.com"]
     artifacts:
-        - /device-config-manager/bin/device-config-manager
+        - /device-config-manager/bin/device-config-manager-jammy
+
+  build-device-config-manager-ubi24:
+    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make UBUNTU_VERSION=noble dcm"]
+    owners: ["email:nkomarla@amd.com"]
+    artifacts:
+        - /device-config-manager/bin/device-config-manager-noble
 
   build-device-config-manager-docker:
     commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make all"]
@@ -34,8 +46,12 @@ targets:
     sub-area:
     feature:
     build-dependencies:
-        - build-device-config-manager
+        - build-device-config-manager-ubi22
+        - build-device-config-manager-ubi24
         - build-device-config-manager-docker
+        - build-debian-package-ub22.04
+        - build-debian-package-ub24.04
+        - build-helm-artifact
 
 image:
   bind_dir: "/device-config-manager"

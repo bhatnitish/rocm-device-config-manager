@@ -39,6 +39,8 @@ copy_artifacts () {
     cp /device-config-manager/docker/obj/config-manager-latest.tgz $BUNDLE_DIR/device-config-manager-$RELEASE.tar.gz
     # copy device-config-manager debian
     cp /device-config-manager/bin/amdgpu-configmanager_22.04_amd64.deb $BUNDLE_DIR/amdgpu-configmanager_${DEBIAN_VERSION}~22.04_amd64.deb
+    # copy device-config-manager debian 24.04
+    cp /device-config-manager/bin/amdgpu-configmanager_24.04_amd64.deb $BUNDLE_DIR/amdgpu-configmanager_${DEBIAN_VERSION}~24.04_amd64.deb
     # copy helm-charts
     cp /device-config-manager/helm-charts/device-config-manager-charts-v1.0.0.tgz $BUNDLE_DIR/device-config-manager-charts-$RELEASE-v1.0.0.tgz
     # list the artifacts copied out

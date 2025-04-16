@@ -1,0 +1,33 @@
+# Use the base image for Ubuntu 24.04 Noble
+FROM ubuntu:24.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+
+# Update the package manager and install required dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    gcc \
+    make \
+    vim \
+    build-essential
+
+# Install Go (you can replace the version as needed)
+RUN curl -fsSL https://golang.org/dl/go1.23.4.linux-amd64.tar.gz | tar -C /usr/local -xzf - && \
+    ln -s /usr/local/go/bin/go /usr/bin/go
+
+# Set up the workspace
+WORKDIR /device-config-manager
+
+# Copy the source code into the container
+COPY ../../device-config-manager .
+RUN go mod tidy && go mod download
+
+# Build the Go binary inside the container
+# RUN go build -o docker_binary cmd/deviceconfigmanager/main.go
+
+CMD ["bash"]

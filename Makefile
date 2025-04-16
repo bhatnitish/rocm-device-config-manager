@@ -43,8 +43,10 @@ ASSETS_PATH :=${TOP_DIR}/assets
 # 24.04 - noble
 UBUNTU_VERSION ?= jammy
 UBUNTU_VERSION_NUMBER = 22.04
+UBUNTU_LIBDIR = UBUNTU22
 ifeq (${UBUNTU_VERSION}, noble)
 UBUNTU_VERSION_NUMBER = 24.04
+UBUNTU_LIBDIR = UBUNTU24
 endif
 
 ifeq ($(RELEASE),)
@@ -53,6 +55,7 @@ else
 DEBIAN_VERSION := $(shell echo "$(RELEASE)" | cut -c 16-)
 endif
 
+BUILD_PKG_PATH = ${TOP_DIR}/build/${UBUNTU_LIBDIR}
 DEBIAN_CONTROL = ${TOP_DIR}/debian/DEBIAN/control
 BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
 
@@ -111,20 +114,20 @@ clean:
 
 .PHONY: dcm
 dcm:
-	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR)
+	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
 
 .PHONY: dcm-docker
 dcm-docker:
-	${MAKE} -C docker TOP_DIR=$(TOP_DIR)
+	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
 
 .PHONY: docker-publish
 docker-publish:
-	${MAKE} -C docker docker-publish TOP_DIR=$(TOP_DIR)
+	${MAKE} -C docker docker-publish TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
 
 .PHONY:all
 all:
-	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR)
-	${MAKE} -C docker TOP_DIR=$(TOP_DIR)
+	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
+	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
 
 copyrights:
 	GOFLAGS=-mod=mod go run tools/build/copyright/main.go && ${MAKE} fmt && ./tools/build/check-local-files.sh
@@ -181,13 +184,14 @@ pkg-clean:
 pkg: pkg-clean
 	${MAKE} dcm
 	@echo "Building debian for $(BUILD_VER_ENV)"
+	@echo "Build path ${BUILD_PKG_PATH}"
 	#copy precompiled libs
 	mkdir -p ${PKG_LIB_PATH}
 	cp -rvf ${AMD_SMI_LIBS}/ ${PKG_LIB_PATH}
 	mkdir -p ${PKG_PATH}
-	cp -vf $(TOP_DIR)/bin/device-config-manager ${PKG_PATH}/
+	cp -vf $(TOP_DIR)/bin/device-config-manager-$(UBUNTU_VERSION) ${PKG_PATH}/
 	#strip the dcm gobin to reduce the debian package size
-	strip ${PKG_PATH}/device-config-manager
+	strip ${PKG_PATH}/device-config-manager-$(UBUNTU_VERSION)
 	cd ${TOP_DIR}
 	sed -i "s/BUILD_VER_ENV/$(BUILD_VER_ENV)/g" $(DEBIAN_CONTROL)
 	dpkg-deb -Zxz --build debian ${TOP_DIR}/bin
@@ -217,7 +221,7 @@ mod:
 	@go mod vendor
 
 .PHONY:checks
-checks: vet
+checks: fmt
 
 .PHONY: e2e
 e2e:

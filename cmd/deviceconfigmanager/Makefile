@@ -1,4 +1,4 @@
 .PHONY:
 amddcm:
-	@echo "building device config manager"
-	@TOP_DIR=$(TOP_DIR) go build -o $(TOP_DIR)/bin/device-config-manager main.go
+	@echo "buidling amd config manager binary"
+	@TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) ./build_dcm_binary.sh
