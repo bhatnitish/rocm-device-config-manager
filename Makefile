@@ -59,7 +59,7 @@ BUILD_PKG_PATH = ${TOP_DIR}/build/${UBUNTU_LIBDIR}
 DEBIAN_CONTROL = ${TOP_DIR}/debian/DEBIAN/control
 BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
 
-AMD_SMI_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_VERSION}/lib
+AMD_SMI_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_LIBDIR}/lib
 PKG_PATH := ${TOP_DIR}/debian/usr/local/bin
 
 # External repo builders
@@ -265,5 +265,5 @@ update-submodules:
 
 .PHONY: build-all
 build-all: 
-	${MAKE} amdsmi-compile-rhel amdsmi-compile-ub22 amdsmi-compile-ub24 amdsmi-compile-azure
+	${MAKE} amdsmi-build-rhel amdsmi-build-ub22 amdsmi-build-ub24 amdsmi-build-azure amdsmi-compile-rhel amdsmi-compile-ub22 amdsmi-compile-ub24 amdsmi-compile-azure
 	@echo "Docker image build is available under docker/ directory"
