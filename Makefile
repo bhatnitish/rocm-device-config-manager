@@ -67,10 +67,10 @@ AMDSMI_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.4
 AMDSMI_BASE_UBUNTU22 ?= ubuntu:22.04
 AMDSMI_BASE_UBUNTU24 ?= ubuntu:24.04
 AMDSMi_BASE_AZURE ?= mcr.microsoft.com/azurelinux/base/core:3.0
-AMDSMI_BUILDER_IMAGE ?= amdsmi-builder:rhel9
-AMDSMI_BUILDER_UB22_IMAGE ?= amdsmi-builder:ub22
-AMDSMI_BUILDER_UB24_IMAGE ?= amdsmi-builder:ub24
-AMDSMI_BUILDER_AZURE_IMAGE ?= amdsmi-builder:azure
+AMDSMI_BUILDER_IMAGE ?= amdsmi-builder-dcm:rhel9
+AMDSMI_BUILDER_UB22_IMAGE ?= amdsmi-builder-dcm:ub22
+AMDSMI_BUILDER_UB24_IMAGE ?= amdsmi-builder-dcm:ub24
+AMDSMI_BUILDER_AZURE_IMAGE ?= amdsmi-builder-dcm:azure
 
 # amdsmi builder base images and tags
 export AMDSMI_BASE_IMAGE
@@ -265,5 +265,5 @@ update-submodules:
 
 .PHONY: build-all
 build-all: 
-	${MAKE} amdsmi-build-rhel amdsmi-build-ub22 amdsmi-build-ub24 amdsmi-build-azure amdsmi-compile-rhel amdsmi-compile-ub22 amdsmi-compile-ub24 amdsmi-compile-azure
+	${MAKE} amdsmi-compile-rhel amdsmi-compile-ub22 amdsmi-compile-ub24 amdsmi-compile-azure
 	@echo "Docker image build is available under docker/ directory"
