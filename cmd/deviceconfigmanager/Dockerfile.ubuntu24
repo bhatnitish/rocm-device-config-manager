@@ -12,8 +12,13 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     gcc \
+    g++ \
+    libc6-dev \
     make \
+    pkg-config \
+    zlib1g-dev \
     vim \
+    wget \
     build-essential
 
 # Install Go (you can replace the version as needed)
@@ -26,8 +31,5 @@ WORKDIR /device-config-manager
 # Copy the source code into the container
 COPY ../../device-config-manager .
 RUN go mod tidy && go mod download
-
-# Build the Go binary inside the container
-# RUN go build -o docker_binary cmd/deviceconfigmanager/main.go
 
 CMD ["bash"]

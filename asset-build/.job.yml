@@ -10,7 +10,8 @@ targets:
     build-dependencies:
       - build-device-config-manager-ubi22
       - build-device-config-manager-ubi24
-      - build-device-config-manager-docker
+      - build-device-config-manager-docker-ubi22
+      - build-device-config-manager-docker-ubi24
       - build-helm-artifact
       - build-debian-package-ub22.04
       - build-debian-package-ub24.04
