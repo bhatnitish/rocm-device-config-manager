@@ -23,10 +23,10 @@ mkdir -p $TOP_DIR/build/assets/
 ln -s ../../../device-config-manager device-config-manager
 
 if [ "$UBUNTU_VERSION" = "jammy" ]; then
-    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/jammy/lib/* $TOP_DIR/build/assets
+    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/* $TOP_DIR/build/assets
     docker build -t img -f Dockerfile.ubuntu22 ../../..
 elif [ "$UBUNTU_VERSION" = "noble" ]; then
-    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/noble/lib/* $TOP_DIR/build/assets
+    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/* $TOP_DIR/build/assets
     docker build -t img -f Dockerfile.ubuntu24 ../../..
 fi
 

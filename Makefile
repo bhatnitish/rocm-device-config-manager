@@ -59,8 +59,43 @@ BUILD_PKG_PATH = ${TOP_DIR}/build/${UBUNTU_LIBDIR}
 DEBIAN_CONTROL = ${TOP_DIR}/debian/DEBIAN/control
 BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
 
-AMD_SMI_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_VERSION}/lib
+AMD_SMI_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_LIBDIR}/lib
 PKG_PATH := ${TOP_DIR}/debian/usr/local/bin
+
+# External repo builders
+AMDSMI_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.4
+AMDSMI_BASE_UBUNTU22 ?= ubuntu:22.04
+AMDSMI_BASE_UBUNTU24 ?= ubuntu:24.04
+AMDSMi_BASE_AZURE ?= mcr.microsoft.com/azurelinux/base/core:3.0
+AMDSMI_BUILDER_IMAGE ?= amdsmi-builder-dcm:rhel9
+AMDSMI_BUILDER_UB22_IMAGE ?= amdsmi-builder-dcm:ub22
+AMDSMI_BUILDER_UB24_IMAGE ?= amdsmi-builder-dcm:ub24
+AMDSMI_BUILDER_AZURE_IMAGE ?= amdsmi-builder-dcm:azure
+
+# amdsmi builder base images and tags
+export AMDSMI_BASE_IMAGE
+export AMDSMI_BASE_UBUNTU22
+export AMDSMI_BASE_UBUNTU24
+export AMDSMI_BASE_AZURE
+
+# AMD SMI builder base images and tags
+export AMDSMI_BUILDER_IMAGE
+export AMDSMI_BUILDER_UB22_IMAGE
+export AMDSMI_BUILDER_UB24_IMAGE
+export AMDSMI_BUILDER_AZURE_IMAGE
+
+# library branch to build amdsmi libraries
+AMDSMI_BRANCH ?= amd-mainline
+AMDSMI_COMMIT ?= 61ea0f2fb86b337d0efaef4337e95bc24df2a599
+
+EXCLUDE_PATTERN := "libamdsmi"
+GO_PKG := $(shell go list ./...  2>/dev/null | grep github.com/ROCm/device-config-manager | egrep -v ${EXCLUDE_PATTERN})
+
+export ${AMDSMI_BRANCH}
+export ${AMDSMI_COMMIT}
+
+include Makefile.build
+include Makefile.compile
 
 ##################
 # Makefile targets
@@ -114,20 +149,20 @@ clean:
 
 .PHONY: dcm
 dcm:
-	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
+	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
 
 .PHONY: dcm-docker
 dcm-docker:
-	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
+	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
 
 .PHONY: docker-publish
 docker-publish:
-	${MAKE} -C docker docker-publish TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
+	${MAKE} -C docker docker-publish TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
 
 .PHONY:all
 all:
-	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
-	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION)
+	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
+	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
 
 copyrights:
 	GOFLAGS=-mod=mod go run tools/build/copyright/main.go && ${MAKE} fmt && ./tools/build/check-local-files.sh
@@ -204,11 +239,12 @@ pkg: pkg-clean
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
-	go fmt ./...
+	go fmt $(GO_PKG)
 
 .PHONY: vet
 vet: ## Run go vet against code.
-	go vet ./...
+	$(info +++ govet sources)
+	go vet -source $(GO_PKG)
 
 .PHONY:loadgpu
 loadgpu:
@@ -226,3 +262,12 @@ checks: fmt
 .PHONY: e2e
 e2e:
 	${MAKE} -C test/k8s-e2e all TOP_DIR=$(TOP_DIR)
+
+.PHONY: update-submodules
+update-submodules:
+	git submodule update --remote --recursive
+
+.PHONY: build-all
+build-all: 
+	${MAKE} amdsmi-compile-rhel amdsmi-compile-ub22 amdsmi-compile-ub24 amdsmi-compile-azure
+	@echo "Docker image build is available under docker/ directory"
