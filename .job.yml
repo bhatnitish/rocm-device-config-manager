@@ -39,7 +39,7 @@ builds:
         - /device-config-manager/docker/obj/config-manager-ubi22-latest.tgz
 
   build-device-config-manager-docker-ubi24:
-    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make UBUNTU_VERION=noble all"]
+    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make UBUNTU_VERSION=noble all"]
     owners: ["email:nkomarla@amd.com"]
     artifacts:
         - /device-config-manager/docker/obj/config-manager-ubi24-latest.tgz

@@ -103,7 +103,11 @@ fi
 # prepare the final tar ball now
 if [ "$SAVE_IMAGE" == 1 ]; then
     echo "Preparing final image ..."
-    mv config-manager-$VER.tgz $IMAGE_DIR/config-manager-latest.tgz
+    if [ "$UBUNTU_VERSION" = "jammy" ]; then
+        mv config-manager-$VER.tgz $IMAGE_DIR/config-manager-ubi22-latest.tgz
+    elif [ "$UBUNTU_VERSION" = "noble" ]; then
+        mv config-manager-$VER.tgz $IMAGE_DIR/config-manager-ubi24-latest.tgz
+    fi
     echo "Image ready in $IMAGE_DIR"
 fi
 
