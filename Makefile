@@ -161,8 +161,8 @@ docker-publish:
 
 .PHONY:all
 all:
-	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
-	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
+	${MAKE} dcm
+	${MAKE} dcm-docker
 
 copyrights:
 	GOFLAGS=-mod=mod go run tools/build/copyright/main.go && ${MAKE} fmt && ./tools/build/check-local-files.sh

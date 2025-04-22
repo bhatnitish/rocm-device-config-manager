@@ -74,9 +74,9 @@ ln -f $TOP_DIR/bin/device-config-manager-$UBUNTU_VERSION $TOP_DIR/docker/device-
 if [ $PUBLISH_IMAGE == 1 ]; then
     echo "publishing dcm image to $IMAGE_URL"
     if [ "$UBUNTU_VERSION" = "jammy" ]; then
-        docker build -t $IMAGE_URL . -f Dockerfile && docker push $IMAGE_URL
+        docker build -t $IMAGE_URL . --label HOURLY_TAG=$HOURLY_TAG_LABEL -f Dockerfile && docker push $IMAGE_URL
     elif [ "$UBUNTU_VERSION" = "noble" ]; then
-        docker build -t $IMAGE_URL . -f Dockerfile.ubuntu24  && docker push $IMAGE_URL
+        docker build -t $IMAGE_URL . --label HOURLY_TAG=$HOURLY_TAG_LABEL -f Dockerfile.ubuntu24  && docker push $IMAGE_URL
     fi
     if [ $? -eq 0 ]; then
         echo "Successfully published image $IMAGE_URL"
@@ -87,9 +87,9 @@ if [ $PUBLISH_IMAGE == 1 ]; then
 else
     echo "building dcm image to $DOCKER_IMAGE_NAME"
     if [ "$UBUNTU_VERSION" = "jammy" ]; then
-        docker build -t $IMAGE_URL . -f Dockerfile && docker save -o config-manager-$VER.tar $IMAGE_URL
+        docker build -t $IMAGE_URL . --label HOURLY_TAG=$HOURLY_TAG_LABEL -f Dockerfile && docker save -o config-manager-$VER.tar $IMAGE_URL
     elif [ "$UBUNTU_VERSION" = "noble" ]; then
-        docker build -t $IMAGE_URL . -f Dockerfile.ubuntu24  && docker save -o config-manager-$VER.tar $IMAGE_URL
+        docker build -t $IMAGE_URL . --label HOURLY_TAG=$HOURLY_TAG_LABEL -f Dockerfile.ubuntu24  && docker save -o config-manager-$VER.tar $IMAGE_URL
     fi
     if [ $? -eq 0 ]; then
         gzip config-manager-$VER.tar

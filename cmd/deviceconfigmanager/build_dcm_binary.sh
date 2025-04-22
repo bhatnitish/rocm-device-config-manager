@@ -19,23 +19,33 @@
 
 # create a tmp directory to fill the AMD SMI assets
 
+DCM_BUILD_DOCKER_IMG="registry.test.pensando.io:5000/dcm-build"
+
 mkdir -p $TOP_DIR/build/assets/
 ln -s ../../../device-config-manager device-config-manager
 
-if [ "$UBUNTU_VERSION" = "jammy" ]; then
-    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/* $TOP_DIR/build/assets
-    docker build -t img -f Dockerfile.ubuntu22 ../../..
-elif [ "$UBUNTU_VERSION" = "noble" ]; then
-    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/* $TOP_DIR/build/assets
-    docker build -t img -f Dockerfile.ubuntu24 ../../..
+# Check if the image exists locally or in the registry
+if ! docker image inspect $DCM_BUILD_DOCKER_IMG:$UBUNTU_VERSION > /dev/null 2>&1; then
+    echo "Image not found locally. Checking in registry..."
+    # if ! docker pull $DCM_BUILD_DOCKER_IMG:$UBUNTU_VERSION; then
+    echo "Image not found in registry. Building the image..."
+    # Build the image if it's not found locally or in the registry
+    if [ "$UBUNTU_VERSION" = "jammy" ]; then
+        cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/* $TOP_DIR/build/assets
+        docker build --build-arg DCM_BASE_IMAGE=22.04 -t $DCM_BUILD_DOCKER_IMG:jammy -f Dockerfile ../../..
+    elif [ "$UBUNTU_VERSION" = "noble" ]; then
+        cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/* $TOP_DIR/build/assets
+        docker build --build-arg DCM_BASE_IMAGE=24.04 -t $DCM_BUILD_DOCKER_IMG:noble -f Dockerfile ../../..
+    fi
+    # Push the newly built image to the registry
+    docker push $DCM_BUILD_DOCKER_IMG:$UBUNTU_VERSION
+    # fi
+else
+    echo "Image found locally or in the registry. Using the existing image..."
 fi
 
 rm -rf device-config-manager
-docker run -it --name dcm_build_container img:latest  bash -c "
-  echo 'Listing files:' &&
-  ls -l &&
-  echo 'Current working directory:' &&
-  pwd &&
+docker run -it --name dcm_build_container $DCM_BUILD_DOCKER_IMG:$UBUNTU_VERSION  bash -c "
   go build -o dcm_build /device-config-manager/cmd/deviceconfigmanager/main.go
 "
 

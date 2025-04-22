@@ -1,5 +1,6 @@
 # Use the base image for Ubuntu 24.04 Noble
-FROM ubuntu:24.04
+ARG DCM_BASE_IMAGE=22.04
+FROM ubuntu:${DCM_BASE_IMAGE}
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
