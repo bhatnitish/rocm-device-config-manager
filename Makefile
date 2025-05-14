@@ -149,7 +149,7 @@ clean:
 
 .PHONY: dcm
 dcm:
-	${MAKE} -C cmd/deviceconfigmanager TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR)
+	${MAKE} -C cmd/deviceconfigmanager build run ARGS="-k" TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR) GIT_COMMIT=$(GIT_COMMIT) VERSION=$(VERSION) BUILD_DATE=$(BUILD_DATE)
 
 .PHONY: dcm-docker
 dcm-docker:

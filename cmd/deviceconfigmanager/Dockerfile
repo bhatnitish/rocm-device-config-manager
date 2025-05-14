@@ -26,11 +26,8 @@ RUN apt-get update && apt-get install -y \
 RUN curl -fsSL https://golang.org/dl/go1.23.4.linux-amd64.tar.gz | tar -C /usr/local -xzf - && \
     ln -s /usr/local/go/bin/go /usr/bin/go
 
-# Set up the workspace
-WORKDIR /device-config-manager
+RUN mkdir -p /home/amd/tools/
+ADD ./entrypoint.sh /home/amd/tools/entrypoint.sh
+RUN chmod +x /home/amd/tools/entrypoint.sh
 
-# Copy the source code into the container
-COPY ../../device-config-manager .
-RUN go mod tidy && go mod download
-
-CMD ["bash"]
+ENTRYPOINT ["/home/amd/tools/entrypoint.sh"]

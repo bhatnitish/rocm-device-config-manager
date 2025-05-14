@@ -25,7 +25,19 @@
 # ./script.sh -p                # Prints "publish image option set" and sets PUBLISH_IMAGE=1
 # ./script.sh -n my_image -s -p # Combines options: sets DOCKER_IMAGE_NAME, SAVE_IMAGE, and PUBLISH_IMAGE
 
-while getopts ":h:sn:p" option; do
+print_help () {
+    echo "This script can be used to build a exporter container"
+    echo
+    echo "Syntax: $0 [-s -n]"
+    echo "options:"
+    echo "-h    print help"
+    echo "-s    prepare a release tarball image"
+    echo "-p    publish to registry"
+    echo "-n    docker image name"
+    exit 0
+}
+
+while getopts "hsn:p" option; do
     case $option in
         h)
             print_help
@@ -68,8 +80,11 @@ DOCKER_REGISTRY="registry.test.pensando.io:5000/device-config-manager"
 IMAGE_URL="${DOCKER_REGISTRY}:${VER}"
 
 echo $TOP_DIR
+rm -rf $TOP_DIR/docker/smilib $TOP_DIR/docker/device-config-manager
+sleep 5
+
 cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib $TOP_DIR/docker/smilib
-ln -f $TOP_DIR/bin/device-config-manager-$UBUNTU_VERSION $TOP_DIR/docker/device-config-manager
+cp $TOP_DIR/bin/device-config-manager-$UBUNTU_VERSION $TOP_DIR/docker/device-config-manager
 
 if [ $PUBLISH_IMAGE == 1 ]; then
     echo "publishing dcm image to $IMAGE_URL"
@@ -111,6 +126,6 @@ if [ "$SAVE_IMAGE" == 1 ]; then
     echo "Image ready in $IMAGE_DIR"
 fi
 
-rm -rf smilib
+rm -rf $TOP_DIR/docker/smilib $TOP_DIR/docker/device-config-manager
 
 exit 0

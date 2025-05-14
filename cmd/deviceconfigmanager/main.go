@@ -22,7 +22,17 @@ import (
 	configmanager "github.com/ROCm/device-config-manager/pkg/config_manager"
 )
 
+var (
+	Version   string
+	BuildDate string
+	GitCommit string
+)
+
 func main() {
+
+	log.Printf("Version : %v", Version)
+	log.Printf("BuildDate: %v", BuildDate)
+	log.Printf("GitCommit: %v", GitCommit)
 
 	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 		log.Println("Running inside a Kubernetes pod")
