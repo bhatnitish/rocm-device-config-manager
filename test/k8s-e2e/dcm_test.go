@@ -17,6 +17,8 @@ var (
 	nodePort      = 80
 )
 
+const GpuConfigProfileStateLabel = "dcm.amd.com/gpu-config-profile-state"
+
 func (s *E2ESuite) addRemoveNodeLabels(nodeName string, selectedProfile string) {
 	ctx := context.Background()
 	err := s.k8sclient.AddNodeLabel(ctx, nodeName, "dcm.amd.com/gpu-config-profile", selectedProfile)
@@ -33,13 +35,19 @@ func (s *E2ESuite) addRemoveNodeLabels(nodeName string, selectedProfile string) 
 	}
 }
 
-func (s *E2ESuite) getWorkerNode(ctx context.Context) string {
+func (s *E2ESuite) getWorkerNode(c *C, ctx context.Context) string {
 	labelMap := make(map[string]string)
 	labelMap["feature.node.kubernetes.io/amd-gpu"] = "true"
 
 	nodes, err := s.k8sclient.GetNodesByLabel(ctx, labelMap)
 	if err != nil {
 		log.Printf("Error getting nodes: %s\n", err.Error())
+		assert.Fail(c, "Error getting worker node")
+		return ""
+	}
+	if len(nodes) == 0 {
+		log.Printf("No worker nodes present")
+		assert.Fail(c, "Error getting worker node")
 		return ""
 	}
 	worker_node := nodes[0].Name
@@ -50,7 +58,7 @@ func (s *E2ESuite) getWorkerNode(ctx context.Context) string {
 
 func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
 	ctx := context.Background()
-	worker_node := s.getWorkerNode(ctx)
+	worker_node := s.getWorkerNode(c, ctx)
 	// remove existing label for profile selection if any
 	err := s.k8sclient.DeleteNodeLabel(ctx, worker_node, "dcm.amd.com/gpu-config-profile")
 	if err != nil {
@@ -117,54 +125,209 @@ func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
 	log.Print("Successfully deployed DCM Pod")
 }
 
-func (s *E2ESuite) Test002DCMPartitioning(c *C) {
+func (s *E2ESuite) Test002DCMDefaultPartitioning(c *C) {
 	ctx := context.Background()
 
-	assert.Eventually(c, func() bool {
-		worker_node := s.getWorkerNode(ctx)
-		s.addRemoveNodeLabels(worker_node, "default")
-		labels, err := s.k8sclient.GetNodeLabel(ctx, worker_node)
-		if err != nil {
-			return false
+	worker_node := s.getWorkerNode(c, ctx)
+	log.Printf("Adding node label to select profile: default\n")
+	s.addRemoveNodeLabels(worker_node, "default")
+	labels, err := s.k8sclient.GetNodeLabel(ctx, worker_node)
+	if err != nil {
+		log.Printf("Error in getting node labels")
+		assert.Fail(c, err.Error())
+		return
+	}
+	if len(labels) != 0 {
+		gpuConfigProfileState := labels[GpuConfigProfileStateLabel]
+		log.Printf("gpuConfigProfileState : %v", gpuConfigProfileState)
+		if gpuConfigProfileState != "success" {
+			log.Printf("GPUConfigProfileState label reporting partition as failure")
+			assert.Fail(c, "GPUConfigProfileState -> Failure")
+			return
 		}
-		if len(labels) != 0 {
-			gpuConfigProfileState := labels["dcm.amd.com/gpu-config-profile-state"]
-			if gpuConfigProfileState != "success" {
-				log.Printf("GPUConfigProfileState label reporting partition as failure")
-				return false
-			}
-		}
-		log.Printf("GPUConfigProfileState label reporting partition as success")
-		return true
-	}, 50*time.Second, 10*time.Second)
+	}
+	log.Printf("GPUConfigProfileState label reporting partition as success")
 }
 
-func (s *E2ESuite) Test003DCMInvalidProfiles(c *C) {
+func (s *E2ESuite) Test003DCMHeterogenousPartitioning(c *C) {
+	ctx := context.Background()
+
+	worker_node := s.getWorkerNode(c, ctx)
+	log.Printf("Adding node label to select profile: e2e_profile1\n")
+	s.addRemoveNodeLabels(worker_node, "e2e_profile1")
+	labels, err := s.k8sclient.GetNodeLabel(ctx, worker_node)
+	if err != nil {
+		log.Printf("Error in getting node labels")
+		assert.Fail(c, err.Error())
+		return
+	}
+	if len(labels) != 0 {
+		gpuConfigProfileState := labels[GpuConfigProfileStateLabel]
+		log.Printf("gpuConfigProfileState: %v", gpuConfigProfileState)
+		if gpuConfigProfileState != "success" {
+			log.Printf("GPUConfigProfileState label reporting partition as failure")
+			assert.Fail(c, "GPUConfigProfileState -> Failure")
+			return
+		}
+	}
+	log.Printf("GPUConfigProfileState label reporting partition as success")
+}
+
+func (s *E2ESuite) Test004DCMInvalidProfiles(c *C) {
 	ctx := context.Background()
 
 	labelMap := make(map[string]string)
 	labelMap["feature.node.kubernetes.io/amd-gpu"] = "true"
-	assert.Eventually(c, func() bool {
-		nodes, err := s.k8sclient.GetNodesByLabel(ctx, labelMap)
-		worker_node := nodes[0].Name
-		log.Printf("Selected Worker Node: %v", worker_node)
-		if err != nil {
-			log.Printf("Error getting nodes: %s\n", err.Error())
-			return false
+
+	worker_node := s.getWorkerNode(c, ctx)
+	log.Printf("Adding node label to select profile: e2e_profile2")
+	s.addRemoveNodeLabels(worker_node, "e2e_profile2")
+	labels, err := s.k8sclient.GetNodeLabel(ctx, worker_node)
+	if err != nil {
+		log.Printf("Error in getting node labels")
+		assert.Fail(c, err.Error())
+		return
+	}
+	if len(labels) != 0 {
+		gpuConfigProfileState := labels[GpuConfigProfileStateLabel]
+		log.Printf("gpuConfigProfileState : %v", gpuConfigProfileState)
+		if gpuConfigProfileState != "failure" {
+			log.Printf("Negative test case failure: GPUConfigProfileState label reporting partition as success")
+			assert.Fail(c, "Not expected: GPUConfigProfileState -> Success")
+			return
 		}
-		s.addRemoveNodeLabels(worker_node, "inval_prof1")
-		labels, err := s.k8sclient.GetNodeLabel(ctx, worker_node)
-		if err != nil {
-			return false
+	}
+	log.Printf("Negative test case passed: GPUConfigProfileState label reporting partition as failure")
+}
+
+func (s *E2ESuite) Test005DCMInvalidComputeType(c *C) {
+	ctx := context.Background()
+
+	labelMap := make(map[string]string)
+	labelMap["feature.node.kubernetes.io/amd-gpu"] = "true"
+
+	worker_node := s.getWorkerNode(c, ctx)
+	log.Printf("Adding node label to select profile: inval_prof1")
+	s.addRemoveNodeLabels(worker_node, "inval_prof1")
+	labels, err := s.k8sclient.GetNodeLabel(ctx, worker_node)
+	if err != nil {
+		log.Printf("Error in getting node labels")
+		assert.Fail(c, err.Error())
+		return
+	}
+	if len(labels) != 0 {
+		gpuConfigProfileState := labels[GpuConfigProfileStateLabel]
+		log.Printf("gpuConfigProfileState : %v", gpuConfigProfileState)
+		if gpuConfigProfileState != "failure" {
+			log.Printf("Negative test case failure: GPUConfigProfileState label reporting partition as success")
+			assert.Fail(c, "Not expected: GPUConfigProfileState -> Success")
+			return
 		}
-		if len(labels) != 0 {
-			gpuConfigProfileState := labels["dcm.amd.com/gpu-config-profile-state"]
-			if gpuConfigProfileState != "failure" {
-				log.Printf("Negative test case failure: GPUConfigProfileState label reporting partition as success")
-				return false
-			}
+	}
+	log.Printf("Negative test case passed: GPUConfigProfileState label reporting partition as failure")
+}
+
+func (s *E2ESuite) Test006DCMInvalidMemoryType(c *C) {
+	ctx := context.Background()
+
+	labelMap := make(map[string]string)
+	labelMap["feature.node.kubernetes.io/amd-gpu"] = "true"
+
+	worker_node := s.getWorkerNode(c, ctx)
+	log.Printf("Adding node label to select profile: inval_prof2")
+	s.addRemoveNodeLabels(worker_node, "inval_prof2")
+	labels, err := s.k8sclient.GetNodeLabel(ctx, worker_node)
+	if err != nil {
+		log.Printf("Error in getting node labels")
+		assert.Fail(c, err.Error())
+		return
+	}
+	if len(labels) != 0 {
+		gpuConfigProfileState := labels[GpuConfigProfileStateLabel]
+		log.Printf("gpuConfigProfileState : %v", gpuConfigProfileState)
+		if gpuConfigProfileState != "failure" {
+			log.Printf("Negative test case failure: GPUConfigProfileState label reporting partition as success")
+			assert.Fail(c, "Not expected: GPUConfigProfileState -> Success")
+			return
 		}
-		log.Printf("Negative test case passed: GPUConfigProfileState label reporting partition as failure")
-		return true
-	}, 50*time.Second, 10*time.Second)
+	}
+	log.Printf("Negative test case passed: GPUConfigProfileState label reporting partition as failure")
+}
+
+func (s *E2ESuite) Test007DCMInvalidGPUCount(c *C) {
+	ctx := context.Background()
+
+	labelMap := make(map[string]string)
+	labelMap["feature.node.kubernetes.io/amd-gpu"] = "true"
+
+	worker_node := s.getWorkerNode(c, ctx)
+	log.Printf("Adding node label to select profile: inval_prof3")
+	s.addRemoveNodeLabels(worker_node, "inval_prof3")
+	labels, err := s.k8sclient.GetNodeLabel(ctx, worker_node)
+	if err != nil {
+		log.Printf("Error in getting node labels")
+		assert.Fail(c, err.Error())
+		return
+	}
+	if len(labels) != 0 {
+		gpuConfigProfileState := labels[GpuConfigProfileStateLabel]
+		log.Printf("gpuConfigProfileState : %v", gpuConfigProfileState)
+		if gpuConfigProfileState != "failure" {
+			log.Printf("Negative test case failure: GPUConfigProfileState label reporting partition as success")
+			assert.Fail(c, "Not expected: GPUConfigProfileState -> Success")
+			return
+		}
+	}
+	log.Printf("Negative test case passed: GPUConfigProfileState label reporting partition as failure")
+}
+
+func (s *E2ESuite) Test008DCMInvalidMemoryCombination(c *C) {
+	ctx := context.Background()
+
+	labelMap := make(map[string]string)
+	labelMap["feature.node.kubernetes.io/amd-gpu"] = "true"
+
+	worker_node := s.getWorkerNode(c, ctx)
+	log.Printf("Adding node label to select profile: inval_prof4")
+	s.addRemoveNodeLabels(worker_node, "inval_prof4")
+	labels, err := s.k8sclient.GetNodeLabel(ctx, worker_node)
+	if err != nil {
+		log.Printf("Error in getting node labels")
+		assert.Fail(c, err.Error())
+		return
+	}
+	if len(labels) != 0 {
+		gpuConfigProfileState := labels[GpuConfigProfileStateLabel]
+		log.Printf("gpuConfigProfileState : %v", gpuConfigProfileState)
+		if gpuConfigProfileState != "failure" {
+			log.Printf("Negative test case failure: GPUConfigProfileState label reporting partition as success")
+			assert.Fail(c, "Not expected: GPUConfigProfileState -> Success")
+			return
+		}
+	}
+	log.Printf("Negative test case passed: GPUConfigProfileState label reporting partition as failure")
+}
+
+func (s *E2ESuite) Test009DCMNPS4Partitioning(c *C) {
+	ctx := context.Background()
+
+	worker_node := s.getWorkerNode(c, ctx)
+	log.Printf("Adding node label to select profile: nps4\n")
+	s.addRemoveNodeLabels(worker_node, "nps4")
+	labels, err := s.k8sclient.GetNodeLabel(ctx, worker_node)
+	if err != nil {
+		log.Printf("Error in getting node labels")
+		assert.Fail(c, err.Error())
+		return
+	}
+	if len(labels) != 0 {
+		gpuConfigProfileState := labels[GpuConfigProfileStateLabel]
+		log.Printf("gpuConfigProfileState: %v", gpuConfigProfileState)
+		if gpuConfigProfileState != "success" {
+			log.Printf("GPUConfigProfileState label reporting partition as failure")
+			assert.Fail(c, "GPUConfigProfileState -> Failure")
+			return
+		}
+	}
+	log.Printf("GPUConfigProfileState label reporting partition as success")
 }

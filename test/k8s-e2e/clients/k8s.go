@@ -149,7 +149,7 @@ func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name 
 		{
 			ComputePartition: "SPX",
 			MemoryPartition:  "NPS1",
-			NumGPUsAssigned:  1,
+			NumGPUsAssigned:  8,
 		},
 	}
 
@@ -175,7 +175,7 @@ func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name 
 		{
 			ComputePartition: "InvalidName",
 			MemoryPartition:  "NPS1",
-			NumGPUsAssigned:  1,
+			NumGPUsAssigned:  8,
 		},
 	}
 
@@ -183,7 +183,7 @@ func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name 
 		{
 			ComputePartition: "SPX",
 			MemoryPartition:  "InvalidName",
-			NumGPUsAssigned:  1,
+			NumGPUsAssigned:  8,
 		},
 	}
 
@@ -199,6 +199,27 @@ func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name 
 		{
 			ComputePartition: "CPX",
 			MemoryPartition:  "NPS4",
+		},
+	}
+
+	profiles_set7 := []*ProfileConfig{
+		{
+			ComputePartition: "DPX",
+			MemoryPartition:  "NPS4",
+			NumGPUsAssigned:  7,
+		},
+		{
+			ComputePartition: "SPX",
+			MemoryPartition:  "NPS1",
+			NumGPUsAssigned:  1,
+		},
+	}
+
+	profiles_set8 := []*ProfileConfig{
+		{
+			ComputePartition: "CPX",
+			MemoryPartition:  "NPS4",
+			NumGPUsAssigned:  8,
 		},
 	}
 
@@ -227,6 +248,14 @@ func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name 
 			"inval_prof3": {
 				Filters:  skippedGPUs,
 				Profiles: profiles_set5,
+			},
+			"inval_prof4": {
+				Filters:  skippedGPUs,
+				Profiles: profiles_set7,
+			},
+			"nps4": {
+				Filters:  skippedGPUs,
+				Profiles: profiles_set8,
 			},
 		},
 	}
