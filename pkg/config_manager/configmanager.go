@@ -436,8 +436,6 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 
 				memoryType := convertMemoryPartitionType(currentMemory)
 				ret_n := C.amdsmi_set_gpu_memory_partition(processor_handle, memoryType)
-				// need to add a sleep of 15s to wait for the memory partition to happen, else will get a AMDGPU restart error
-				time.Sleep(15 * time.Second)
 				updatedMemory := getCurrentGPUMemoryPartition(processor_handle)
 				if ret_n != C.AMDSMI_STATUS_SUCCESS || (updatedMemory == existingMemory) {
 					partition_err_reason = getAMDSMIStatusString(int(ret_n))
