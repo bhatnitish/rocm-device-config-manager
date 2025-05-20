@@ -19,11 +19,8 @@ set -euo pipefail
 #
 # entry point script run on creating a node management container
 
-LD_LIBRARY_PATH=/opt/rocm-6.4.0/lib &
-# sleep
-sleep 10
 LD_LIBRARY_PATH=/home/amd/lib/ &
 
-sleep 10
+sleep 2
 # run the partition binary
 /home/amd/bin/server
