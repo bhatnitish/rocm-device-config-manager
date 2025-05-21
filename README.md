@@ -10,15 +10,17 @@ dcm.amd.com/gpu-config-profile=<profile_name>
 ```
 
 -  Create a config map and apply it on the node.
--  Once applied, user has to add the label amd.com/gpu-config-profile to specify the profile name to be used from the config map.
+-  Once applied, user has to add the label dcm.amd.com/gpu-config-profile to specify the profile name to be used from the config map.
 -  This will trigger the partition using that profile's config.
 
 ```bash
-amd.com/gpu-config-profile=profile-1
+dcm.amd.com/gpu-config-profile=profile-1
 profile-1 : name of profile created in the configmap
+kubectl label node node1 dcm.amd.com/gpu-config-profile=profile-1 
 ```
 
--  To change the profile, user can re-apply the amd.com/gpu-config-profile node label with --overwrite=true option
+-  To change the profile, user can re-apply the `dcm.amd.com/gpu-config-profile` node label with --overwrite=true option
+-  The partition status of a node is indicated by the `dcm.amd.com/gpu-config-profile-state` label. This label reflects the state of the partition operation, reporting `success` when partitioning completes successfully and `failure` if an issue occurs during the process.
 
 ## ConfigMap
 
