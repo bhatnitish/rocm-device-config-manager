@@ -147,6 +147,11 @@ make dcm-docker
 ```bash
 kubectl taint nodes asrock-126-b3-3b amd-dcm=up:NoExecute
 ```
+- To TAINT a node for partitioning in a `single node cluster`, we can use the `NoSchedule` effect rather than a `NoExecute` effect to prevent eviction of existing control-plane pods.
+```bash
+kubectl taint nodes asrock-126-b3-3b amd-dcm=up:NoSchedule
+```
+- Since DCM comes up with a toleration for `NoExecute` by default, user has to add an extra toleration to support the `NoSchedule` taint.
 
 #### Add toleration for the taint
 -  Since tainting a node will bring down all pods/daemonsets, we need to add toleration to the pods to prevent it from getting evicted.
@@ -162,7 +167,7 @@ tolerations:
       - key: "amd-dcm"
         operator: "Equal"
         value: "up"
-        effect: "NoExecute"
+        effect: "NoExecute" # Replace with NoSchedule for single node cluster
 amd@asrock-126-b3-3b:~$ kubectl apply -f nfd.yaml
 ```
 #### Deploy DCM using a custom resource file
@@ -172,6 +177,10 @@ amd@asrock-126-b3-3b:~$ kubectl apply -f nfd.yaml
 #### Untaint
 ```bash
 kubectl taint nodes asrock-126-b3-3b amd-dcm:NoExecute-
+```
+- For single node cluster
+```bash
+kubectl taint nodes asrock-126-b3-3b amd-dcm:NoSchedule-
 ```
 
 ## Deploying Standalone DCM on a cluster
