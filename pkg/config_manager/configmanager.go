@@ -198,6 +198,8 @@ func convertMemoryPartitionType(memoryPartition string) C.amdsmi_memory_partitio
 	switch memoryPartition {
 	case "NPS1":
 		return C.AMDSMI_MEMORY_PARTITION_NPS1
+	case "NPS2":
+		return C.AMDSMI_MEMORY_PARTITION_NPS2
 	case "NPS4":
 		return C.AMDSMI_MEMORY_PARTITION_NPS4
 	default:
@@ -314,8 +316,8 @@ func validateProfile(profile *partition_pb.GPUConfigProfile, totalGPUCount int) 
 			return err
 		}
 		if currentMemory != profiles[i].MemoryPartition {
-			log.Printf("All profiles must have a common memory type NPS1 or NPS4")
-			err := errors.New("profile cannot have combination of NPS1 and NPS4 memory types")
+			log.Printf("All profiles must have a common memory type NPS1, NPS2 or NPS4")
+			err := errors.New("profile cannot have combination of NPS1, NPS2 and NPS4 memory types")
 			return err
 		}
 		nod := profiles[i].NumGPUsAssigned

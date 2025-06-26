@@ -41,7 +41,7 @@ const (
 )
 
 var ValidComputePartitions = []string{"SPX", "CPX", "DPX", "QPX"}
-var ValidMemoryPartitions = []string{"NPS1", "NPS4"}
+var ValidMemoryPartitions = []string{"NPS1", "NPS2", "NPS4"}
 
 // Map of AMD SMI status codes to their descriptions based on
 // https://rocm.docs.amd.com/projects/amdsmi/en/docs-6.3.0/doxygen/docBin/html/amdsmi_8h.html#ab05c37a8d1e512898eef2d25fb9fe06b
