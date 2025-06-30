@@ -84,6 +84,11 @@ export AMDSMI_BUILDER_UB22_IMAGE
 export AMDSMI_BUILDER_UB24_IMAGE
 export AMDSMI_BUILDER_AZURE_IMAGE
 
+# docs build settings
+DOCS_DIR := ${TOP_DIR}/docs
+BUILD_DIR := $(DOCS_DIR)/_build
+HTML_DIR := $(BUILD_DIR)/html
+
 # library branch to build amdsmi libraries
 AMDSMI_BRANCH ?= amd-mainline
 AMDSMI_COMMIT ?= 61ea0f2fb86b337d0efaef4337e95bc24df2a599
@@ -271,3 +276,14 @@ update-submodules:
 build-all: 
 	${MAKE} amdsmi-compile-rhel amdsmi-compile-ub22 amdsmi-compile-ub24 amdsmi-compile-azure
 	@echo "Docker image build is available under docker/ directory"
+
+.PHONY: docs clean-docs dep-docs
+dep-docs:
+	pip install -r $(DOCS_DIR)/sphinx/requirements.txt
+
+docs: dep-docs
+	sphinx-build -b html $(DOCS_DIR) $(HTML_DIR)
+	@echo "Docs built at $(HTML_DIR)/index.html"
+
+clean-docs:
+	rm -rf $(BUILD_DIR)
