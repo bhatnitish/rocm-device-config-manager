@@ -191,6 +191,20 @@ data:
                     "numGPUsAssigned": 3543
                 }
             ]
+        },
+        "nps2":
+        {
+            "skippedGPUs": {
+                "ids": []
+            },
+            "profiles": [
+
+                {
+                    "computePartition": "DPX",
+                    "memoryPartition": "NPS2",
+                    "numGPUsAssigned": 8
+                }
+            ]
         }
       }
     }

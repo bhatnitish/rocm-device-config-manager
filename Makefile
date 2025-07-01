@@ -298,3 +298,16 @@ docs: dep-docs
 
 clean-docs:
 	rm -rf $(BUILD_DIR)
+
+.PHONY: gopkglist
+gopkglist:
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+	go install go.uber.org/mock/mockgen@v0.5.0
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	go install golang.org/x/tools/cmd/goimports@latest
+	go install github.com/alta/protopatch/cmd/protoc-gen-go-patch@latest
+
+.PHONY: gen
+gen: gopkglist
+	${MAKE} -C proto/ all

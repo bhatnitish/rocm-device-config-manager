@@ -38,6 +38,7 @@ enum GPUComputePartitionType {
 enum GPUMemoryPartitionType {
     GPU_MEMORY_TYPE_PARTITION_NPS1      = 0;
     GPU_MEMORY_TYPE_PARTITION_NPS4      = 1;
+    GPU_MEMORY_TYPE_PARTITION_NPS2      = 2;
 }
 
 message ProfileConfig {

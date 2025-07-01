@@ -77,6 +77,7 @@ data:
         - Example, in `profile-1`, we have 5 GPUs set to CPX-NPS1 and exactly 3 more GPU IDs mentioned in the skip list
 - Compute types supported are SPX and CPX.
     - Beta stage: DPX, QPX
-- Memory types supported are NPS1 and NPS4
+- Memory types supported are NPS1, NPS2 and NPS4
     - NPS4 is supported only for CPX compute type
-    - Combination of NPS1 and NPS4 memory types cannot be used in a single profile
+    - Combination of any two memory types cannot be used in a single profile
+    - NPS2 is supported only for DPX compute type
