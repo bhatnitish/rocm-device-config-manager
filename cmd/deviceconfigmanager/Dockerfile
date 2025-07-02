@@ -1,26 +1,12 @@
-# Use the base image for Ubuntu 24.04 Noble
-ARG DCM_BASE_IMAGE=22.04
-FROM ubuntu:${DCM_BASE_IMAGE}
+# Make sure to specify DCM_BASE_IMAGE build-arg to build for ubuntu24.04 noble case
+ARG DCM_BASE_IMAGE=ubuntu22.04
+FROM ${DCM_BASE_IMAGE}
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CGO_ENABLED=1
 ENV GOOS=linux
 ENV GOARCH=amd64
-
-# Update the package manager and install required dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    gcc \
-    g++ \
-    libc6-dev \
-    make \
-    pkg-config \
-    zlib1g-dev \
-    vim \
-    wget \
-    build-essential
 
 # Install Go (you can replace the version as needed)
 RUN curl -fsSL https://golang.org/dl/go1.23.4.linux-amd64.tar.gz | tar -C /usr/local -xzf - && \

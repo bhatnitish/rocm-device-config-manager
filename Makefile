@@ -67,6 +67,10 @@ AMDSMI_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.4
 AMDSMI_BASE_UBUNTU22 ?= ubuntu:22.04
 AMDSMI_BASE_UBUNTU24 ?= ubuntu:24.04
 AMDSMi_BASE_AZURE ?= mcr.microsoft.com/azurelinux/base/core:3.0
+
+#Builder images can be built using targets make amdsmi-build-ub22, 24 etc
+#Push them to internal registry as changes are needed
+#These builder images are used rather than BASE images to prevent building the same image redundantly
 AMDSMI_BUILDER_IMAGE ?= amdsmi-builder-dcm:rhel9
 AMDSMI_BUILDER_UB22_IMAGE ?= amdsmi-builder-dcm:ub22
 AMDSMI_BUILDER_UB24_IMAGE ?= amdsmi-builder-dcm:ub24

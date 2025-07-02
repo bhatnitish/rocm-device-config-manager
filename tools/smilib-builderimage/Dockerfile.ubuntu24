@@ -8,7 +8,18 @@ ENV DEB_BUILD="amd-smi-lib-*99999-local*.deb"
 WORKDIR /usr/src/github.com/ROCm/device-config-manager/libamdsmi
 
 RUN apt update && apt-get install -y git build-essential rpm pkg-config g++ libdrm-dev python3-pip python3-wheel
-
+RUN apt-get install -y \
+    curl \
+    git \
+    gcc \
+    g++ \
+    libc6-dev \
+    make \
+    pkg-config \
+    zlib1g-dev \
+    vim \
+    wget \
+    build-essential
 RUN python3 -m pip install --break-system-packages --upgrade setuptools && \
     python3 -m pip install --break-system-packages cmake virtualenv
 

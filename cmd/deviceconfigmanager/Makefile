@@ -1,8 +1,8 @@
 DCM_BUILD_DOCKER_IMG := registry.test.pensando.io:5000/dcm-build
 ifeq ($(UBUNTU_VERSION), jammy)
-    BASE_IMAGE=22.04
+    BASE_IMAGE=$(AMDSMI_BUILDER_UB22_IMAGE)
 else ifeq ($(UBUNTU_VERSION), noble)
-    BASE_IMAGE=24.04
+    BASE_IMAGE=$(AMDSMI_BUILDER_UB24_IMAGE)
 endif
 
 .PHONY:
