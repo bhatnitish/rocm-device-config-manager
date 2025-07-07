@@ -36,9 +36,7 @@ copy_artifacts () {
     # copy device-config-manager binary
     cp /device-config-manager/bin/device-config-manager $BUNDLE_DIR/device-config-manager-$RELEASE.gobin
     # copy docker image
-    cp /device-config-manager/docker/obj/config-manager-ubi22-latest.tgz $BUNDLE_DIR/device-config-manager-$RELEASE.tar.gz
-    # copy docker image ubi24
-    cp /device-config-manager/docker/obj/config-manager-ubi24-latest.tgz $BUNDLE_DIR/device-config-manager-$RELEASE.tar.gz
+    cp /device-config-manager/docker/obj/config-manager-ubi-latest.tgz $BUNDLE_DIR/device-config-manager-$RELEASE.tar.gz
     # copy device-config-manager debian
     cp /device-config-manager/bin/amdgpu-configmanager_22.04_amd64.deb $BUNDLE_DIR/amdgpu-configmanager_${DEBIAN_VERSION}~22.04_amd64.deb
     # copy device-config-manager debian 24.04
@@ -53,17 +51,10 @@ docker_push () {
     CONFIG_MANAGER_IMAGE_URL=registry.test.pensando.io:5000/device-config-manager
 
     # rhel 9.4 image push
-    docker load -i /device-config-manager/docker/obj/config-manager-ubi22-latest.tgz
+    docker load -i /device-config-manager/docker/obj/config-manager-ubi9-latest.tgz
     docker inspect $CONFIG_MANAGER_IMAGE_URL:latest | grep "HOURLY"
     docker tag $CONFIG_MANAGER_IMAGE_URL:latest $CONFIG_MANAGER_IMAGE_URL:$tag
     docker push $CONFIG_MANAGER_IMAGE_URL:$tag
-
-    # rhel 9.4 image push ubi 24
-    $ubi24_tag = "$tag-ubi24"
-    docker load -i /device-config-manager/docker/obj/config-manager-ubi24-latest.tgz
-    docker inspect $CONFIG_MANAGER_IMAGE_URL:latest | grep "HOURLY"
-    docker tag $CONFIG_MANAGER_IMAGE_URL:latest $CONFIG_MANAGER_IMAGE_URL:$ubi24_tag
-    docker push $CONFIG_MANAGER_IMAGE_URL:$ubi24_tag
 
     if [ -z $DOCKERHUB_TOKEN ]
     then
@@ -73,9 +64,6 @@ docker_push () {
       docker login --username=shreyajmeraamd --password-stdin <<< $DOCKERHUB_TOKEN
       docker tag $CONFIG_MANAGER_IMAGE_URL:$tag amdpsdo/device-config-manager:$RELEASE
       docker push amdpsdo/device-config-manager:$RELEASE
-
-      docker tag $CONFIG_MANAGER_IMAGE_URL:$ubi24_tag amdpsdo/device-config-manager:$RELEASE-ubi24
-      docker push amdpsdo/device-config-manager:$RELEASE-ubi24
 
     fi
 }

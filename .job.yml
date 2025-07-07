@@ -8,41 +8,11 @@ builds:
     sub-area:
     feature:
 
-  build-debian-package-ub22.04:
-    commands: [ "sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make pkg"]
-    owners: ["email:nkomarla@amd.com"]
-    artifacts:
-        - /device-config-manager/bin/amdgpu-configmanager_22.04_amd64.deb
-
-  build-debian-package-ub24.04:
-    commands: [ "sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make UBUNTU_VERSION=noble pkg"]
-    owners: ["email:nkomarla@amd.com"]
-    artifacts:
-        - /device-config-manager/bin/amdgpu-configmanager_24.04_amd64.deb
-
-  build-device-config-manager-ubi22:
-    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make dcm"]
-    owners: ["email:nkomarla@amd.com"]
-    artifacts:
-        - /device-config-manager/bin/device-config-manager-jammy
-
-  build-device-config-manager-ubi24:
-    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make UBUNTU_VERSION=noble dcm"]
-    owners: ["email:nkomarla@amd.com"]
-    artifacts:
-        - /device-config-manager/bin/device-config-manager-noble
-
-  build-device-config-manager-docker-ubi22:
+  build-device-config-manager-docker-ubi9:
     commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && HOURLY_TAG_LABEL=$RELEASE make all"]
     owners: ["email:nkomarla@amd.com"]
     artifacts:
-        - /device-config-manager/docker/obj/config-manager-ubi22-latest.tgz
-
-  build-device-config-manager-docker-ubi24:
-    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && HOURLY_TAG_LABEL=$RELEASE make UBUNTU_VERSION=noble all"]
-    owners: ["email:nkomarla@amd.com"]
-    artifacts:
-        - /device-config-manager/docker/obj/config-manager-ubi24-latest.tgz
+        - /device-config-manager/docker/obj/config-manager-ubi9-latest.tgz
 
   build-helm-artifact:
     commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make helm-build"]
@@ -59,10 +29,7 @@ targets:
     sub-area:
     feature:
     build-dependencies:
-        - build-device-config-manager-ubi22
-        - build-device-config-manager-ubi24
-        - build-device-config-manager-docker-ubi22
-        - build-device-config-manager-docker-ubi24
+        - build-device-config-manager-docker-ubi9
         - build-helm-artifact
         - build-all
 

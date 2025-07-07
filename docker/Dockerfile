@@ -20,10 +20,8 @@ RUN microdnf clean all && microdnf install -y sudo procps file libcap-devel libd
 
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/:/opt/rocm/bin/
 RUN mkdir -p /home/amd/bin/
-RUN mkdir -p /home/amd/lib/
 
-ADD ./smilib/ /home/amd/lib/
-ENV LD_LIBRARY_PATH=/home/amd/lib/
+ENV LD_LIBRARY_PATH=/opt/rocm/lib
 ADD ./device-config-manager /home/amd/bin/server
 RUN mkdir -p /home/amd/tools/
 

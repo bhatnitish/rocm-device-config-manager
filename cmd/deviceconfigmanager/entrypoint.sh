@@ -57,24 +57,25 @@ rm -rf $TOP_DIR/bin/device-config-manager-$UBUNTU_VERSION
 mkdir -p $TOP_DIR/build/assets/
 mkdir -p $TOP_DIR/bin
 
-if [ "$UBUNTU_VERSION" = "jammy" ]; then
-    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/* $TOP_DIR/build/assets
-elif [ "$UBUNTU_VERSION" = "noble" ]; then
-    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/* $TOP_DIR/build/assets
-fi 
-
 if [ "$K8S_BUILD" == 1 ]; then
-    echo "Building DCM binary for $UBUNTU_VERSION"
-    go build -ldflags "-s -w -X main.Version=$VERSION -X main.GitCommit=$GIT_COMMIT -X main.BuildDate=$BUILD_DATE " -o dcm_build $TOP_DIR/cmd/deviceconfigmanager/main.go
-
-    if [ $? -ne 0 ]; then
-    echo "DCM build failed. Exiting..."
-    exit 1
-    fi
-
-    echo "Sucessfully build DCM binary for $UBUNTU_VERSION"
-    cp dcm_build $TOP_DIR/bin/device-config-manager-$UBUNTU_VERSION
-    rm -rf dcm_build
+    # Always pick RHEL9 assets for both openshift and K8s cases
+    echo "Copying assets from path $TOP_DIR/assets/amd_smi_lib/x86_64/RHEL9/lib/"
+    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/RHEL9/lib/* $TOP_DIR/build/assets
+elif [ "$DEBIAN_BUILD" == 1 ]; then
+    # UBUNTU_LIBDIR can be UBUNTU22 or UBUNTU24 depending on the version
+    echo "Copying assets from path $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/"
+    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/* $TOP_DIR/build/assets
 fi
 
-rm -rf $TOP_DIR/build/
+echo "Building DCM binary for $UBUNTU_VERSION"
+go build -ldflags "-s -w -X main.Version=$VERSION -X main.GitCommit=$GIT_COMMIT -X main.BuildDate=$BUILD_DATE " -o dcm_build $TOP_DIR/cmd/deviceconfigmanager/main.go
+
+if [ $? -ne 0 ]; then
+echo "DCM build failed. Exiting..."
+exit 1
+fi
+
+echo "Sucessfully build DCM binary for $UBUNTU_VERSION"
+cp dcm_build $TOP_DIR/bin/device-config-manager-$UBUNTU_VERSION
+
+rm -rf dcm_build $TOP_DIR/build/
