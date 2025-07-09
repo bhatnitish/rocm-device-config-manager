@@ -138,7 +138,7 @@ data:
                 {
                     "computePartition": "CPX",
                     "memoryPartition": "NPS4",
-                    "numGPUsAssigned": 2
+                    "numGPUsAssigned": 4
                 },
                 {
                     "computePartition": "SPX",
