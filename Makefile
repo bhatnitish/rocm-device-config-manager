@@ -158,6 +158,7 @@ build-dev-container:
 .PHONY:clean
 clean:
 	rm -rf pkg/configmanager/bin
+	rm -r $(TOP_DIR)/build/assets
 
 .PHONY: dcm
 dcm:
@@ -311,3 +312,9 @@ gopkglist:
 .PHONY: gen
 gen: gopkglist
 	${MAKE} -C proto/ all
+
+.PHONY: copy-assets-k8s
+copy-assets-k8s:
+	mkdir -p $(TOP_DIR)/build/assets/
+	cp -r $(TOP_DIR)/assets/amd_smi_lib/x86_64/$(RHEL_LIBDIR)/lib/* $(TOP_DIR)/build/assets
+	
