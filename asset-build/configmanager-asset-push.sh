@@ -36,7 +36,13 @@ copy_artifacts () {
     # copy device-config-manager binary
     cp /device-config-manager/bin/device-config-manager $BUNDLE_DIR/device-config-manager-$RELEASE.gobin
     # copy docker image
-    cp /device-config-manager/docker/obj/config-manager-ubi-latest.tgz $BUNDLE_DIR/device-config-manager-$RELEASE.tar.gz
+    cp /device-config-manager/docker/obj/config-manager-ubi9-latest.tgz $BUNDLE_DIR/device-config-manager-$RELEASE.tar.gz
+    if [ "$?" -eq "0" ]; then
+      echo "DCM image copy success"
+    else
+      echo "DCM image copy failed"
+      exit $?
+    fi
     # copy device-config-manager debian
     cp /device-config-manager/bin/amdgpu-configmanager_22.04_amd64.deb $BUNDLE_DIR/amdgpu-configmanager_${DEBIAN_VERSION}~22.04_amd64.deb
     # copy device-config-manager debian 24.04
