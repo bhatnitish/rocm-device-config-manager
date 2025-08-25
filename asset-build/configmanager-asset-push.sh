@@ -48,7 +48,7 @@ copy_artifacts () {
     # copy device-config-manager debian 24.04
     cp /device-config-manager/bin/amdgpu-configmanager_24.04_amd64.deb $BUNDLE_DIR/amdgpu-configmanager_${DEBIAN_VERSION}~24.04_amd64.deb
     # copy helm-charts
-    cp /device-config-manager/helm-charts/device-config-manager-charts-v1.0.0.tgz $BUNDLE_DIR/device-config-manager-charts-$RELEASE-v1.0.0.tgz
+    cp /device-config-manager/helm-charts/device-config-manager-charts-v1.4.0.tgz $BUNDLE_DIR/device-config-manager-charts-$RELEASE-v1.4.0.tgz
     # list the artifacts copied out
     ls -la $BUNDLE_DIR
 }
