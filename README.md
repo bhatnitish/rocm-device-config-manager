@@ -6,7 +6,7 @@ Users will provide the GPU configurations using a K8s config-map. The config-map
   - Ubuntu 22.04
 
 ## RDC version
-  - ROCM 6.3, ROCM 6.4
+  - ROCM 6.3, ROCM 6.4, ROCM 7.0
 
 ## Documentation
 

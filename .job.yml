@@ -2,7 +2,7 @@
 version: 2.0
 builds:
   build-all:
-    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make build-all"]
+    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make compile-amdsmi-all"]
     owners: ["email:nkomarla@amd.com"]
     area:
     sub-area:
