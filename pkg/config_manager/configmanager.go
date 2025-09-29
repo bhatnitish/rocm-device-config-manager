@@ -225,6 +225,9 @@ func amdsmiGetSocketHandles() ([]C.amdsmi_socket_handle, int) {
 		return nil, 0
 	}
 
+	if int(socketCount) == 0 {
+		return nil, 0
+	}
 	// allocating the memory for the sockets
 	sockets := make([]C.amdsmi_socket_handle, socketCount)
 
@@ -381,6 +384,7 @@ func retryMemoryPartitionWithWait(processor_handle C.amdsmi_processor_handle, ex
 	partStatus.Reason = "Waiting up to 5 minutes for kmm drivers memory partition to match expected value..."
 	generateK8sEvent(nil, "recovering memory partition for KMM driver, might take upto 5 mins", partStatus)
 	success := false
+	timeout_hit := false
 	timeout := time.After(globals.KMMDriverRecoveryTimeout)
 	ticker := time.NewTicker(globals.KMMDriverRecoveryCheckInterval)
 	defer ticker.Stop()
@@ -389,6 +393,7 @@ func retryMemoryPartitionWithWait(processor_handle C.amdsmi_processor_handle, ex
 		case <-timeout:
 			log.Println("Timeout waiting for recovering memory partition to match expected value.")
 			success = false
+			timeout_hit = true
 			break
 		case <-ticker.C:
 			if getCurrentGPUMemoryPartition(processor_handle) == expectMemoryPartition {
@@ -397,7 +402,7 @@ func retryMemoryPartitionWithWait(processor_handle C.amdsmi_processor_handle, ex
 				break
 			}
 		}
-		if success {
+		if success || timeout_hit {
 			break
 		}
 	}
@@ -423,6 +428,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 		if err != nil {
 			log.Printf("Error adding status node label: %s\n", err.Error())
 		}
+		return
 	}
 	var processor_handles []C.amdsmi_processor_handle
 	var device_count int
