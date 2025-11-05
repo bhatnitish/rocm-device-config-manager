@@ -18,7 +18,7 @@ builds:
     commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make helm-build"]
     owners: ["email:nkomarla@amd.com"]
     artifacts:
-        - /device-config-manager/helm-charts/device-config-manager-charts-v1.4.0.tgz
+        - /device-config-manager/helm-charts/device-config-manager-charts-v1.4.1.tgz
 
 targets:
   api-checks:
