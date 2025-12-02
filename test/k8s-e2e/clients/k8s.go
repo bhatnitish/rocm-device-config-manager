@@ -302,6 +302,56 @@ func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name 
 	return err
 }
 
+func (k *K8sClient) CreateAINICConfigMap(ctx context.Context, namespace string, name string, ainicConfigJSON string) error {
+	mcfgMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			// Add Helm labels and annotations so Helm can adopt this ConfigMap
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "Helm",
+			},
+			Annotations: map[string]string{
+				"meta.helm.sh/release-name":      "e2e-test-k8s",
+				"meta.helm.sh/release-namespace": namespace,
+			},
+		},
+		Data: map[string]string{
+			"ainic_config.json": ainicConfigJSON,
+		},
+	}
+
+	_, err := k.client.CoreV1().ConfigMaps(namespace).Create(ctx, mcfgMap, metav1.CreateOptions{})
+	if err != nil {
+		log.Print("AINIC Configmap creation failed.\n")
+	} else {
+		log.Print("AINIC Configmap created successfully.\n")
+	}
+	return err
+}
+
+func (k *K8sClient) UpdateAINICConfigMap(ctx context.Context, namespace string, name string, ainicConfigJSON string) error {
+	// Get the existing ConfigMap first
+	existingCM, err := k.client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Failed to get existing AINIC ConfigMap: %v\n", err)
+		return err
+	}
+
+	// Update the data
+	existingCM.Data = map[string]string{
+		"ainic_config.json": ainicConfigJSON,
+	}
+
+	_, err = k.client.CoreV1().ConfigMaps(namespace).Update(ctx, existingCM, metav1.UpdateOptions{})
+	if err != nil {
+		log.Print("AINIC Configmap update failed.\n")
+	} else {
+		log.Print("AINIC Configmap updated successfully.\n")
+	}
+	return err
+}
+
 func (k *K8sClient) UpdateConfigMap(ctx context.Context, namespace string, name string, json string) error {
 	mcfgMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -386,7 +436,13 @@ func (k *K8sClient) AddNodeLabel(ctx context.Context, nodeName string, key strin
 		return err
 	}
 
-	log.Printf("Gpu-config-profile-state label added successfully")
+	labelType := "config-profile"
+	if key == "dcm.amd.com/nic-config-profile" || key == "dcm.amd.com/nic-config-profile-state" {
+		labelType = "NIC config-profile"
+	} else if key == "dcm.amd.com/gpu-config-profile" || key == "dcm.amd.com/gpu-config-profile-state" {
+		labelType = "GPU config-profile"
+	}
+	log.Printf("%s label '%s=%s' added successfully to node %s", labelType, key, value, nodeName)
 	return nil
 }
 
@@ -406,7 +462,14 @@ func (k *K8sClient) DeleteNodeLabel(ctx context.Context, nodeName string, key st
 		panic(err.Error())
 	}
 
-	log.Printf("Label removed successfully")
+	// Dynamic logging based on label key
+	labelType := "config-profile"
+	if key == "dcm.amd.com/nic-config-profile" || key == "dcm.amd.com/nic-config-profile-state" || key == "dcm.amd.com/reboot-needed" {
+		labelType = "NIC config-profile"
+	} else if key == "dcm.amd.com/gpu-config-profile" || key == "dcm.amd.com/gpu-config-profile-state" {
+		labelType = "GPU config-profile"
+	}
+	log.Printf("%s label '%s' removed successfully from node %s", labelType, key, nodeName)
 	if err != nil {
 		return fmt.Errorf("failed to remove node label to node: %v", err)
 	}

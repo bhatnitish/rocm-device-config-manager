@@ -38,7 +38,7 @@ run:
 				-e VERSION=$(VERSION) \
 				-e BUILD_DATE=$(BUILD_DATE) \
 				-v $(TOP_DIR):/device-config-manager \
-				-t $(DCM_BUILD_DOCKER_IMG):$(UBUNTU_VERSION) $(ARGS)
+				-t $(DCM_BUILD_DOCKER_IMG):$(UBUNTU_VERSION)
 
 .PHONY:
 run-st:
@@ -49,4 +49,4 @@ run-st:
 				-e VERSION=$(VERSION) \
 				-e BUILD_DATE=$(BUILD_DATE) \
 				-v $(TOP_DIR):/device-config-manager \
-				-t $(DCM_BUILD_DOCKER_IMG):$(UBUNTU_VERSION) $(ARGS)
+				-t $(DCM_BUILD_DOCKER_IMG):$(UBUNTU_VERSION)

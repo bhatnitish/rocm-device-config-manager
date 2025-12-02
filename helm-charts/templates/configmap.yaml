@@ -1,8 +1,9 @@
+{{- if and .Values.configMap .Values.createGpuConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: dcm-st
-  namespace: kube-amd-gpu
+  name: {{ .Values.configMap }}
+  namespace: {{ .Release.Namespace }}
 data:
   config.json: |
     {
@@ -39,4 +40,4 @@ data:
            "names": ["amd-metrics-exporter", "gpuagent"]
        }
     }
-
+{{- end }}

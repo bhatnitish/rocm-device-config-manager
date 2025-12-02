@@ -20,23 +20,16 @@ print_help() {
     echo
     echo "Options:"
     echo "-h    Show this help message"
-    echo "-k    Trigger DCM Build for K8S"
-    echo "-d    Trigger DCM Build for debian"
+    echo "Note: Environment is auto-detected from UBUNTU_LIBDIR variable"
+    echo "      UBUNTU_LIBDIR=RHEL9 for Kubernetes deployments"
+    echo "      UBUNTU_LIBDIR=UBUNTU22/UBUNTU24 for Debian deployments"
 }
 
-while getopts "hdk" option; do
+while getopts "h" option; do
     case $option in
         h)
             print_help
             exit 0 ;;
-        d)
-            echo "debian binary option set"
-            DEBIAN_BUILD=1
-            ;;
-        k)
-            echo "k8s binary option set"
-            K8S_BUILD=1
-            ;;
         \?)
             echo "Invalid option"
             exit 1 ;;
@@ -52,30 +45,23 @@ fi
 cd /device-config-manager
 TOP_DIR=$(pwd)
 echo "Current directory: $(pwd)"
-rm -rf $TOP_DIR/bin/device-config-manager-$UBUNTU_VERSION
+rm -rf $TOP_DIR/bin/device-config-manager*-$UBUNTU_VERSION
 
 mkdir -p $TOP_DIR/build/assets/
 mkdir -p $TOP_DIR/bin
 
-if [ "$K8S_BUILD" == 1 ]; then
-    # Always pick RHEL9 assets for both openshift and K8s cases
-    echo "Copying assets from path $TOP_DIR/assets/amd_smi_lib/x86_64/RHEL9/lib/"
-    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/RHEL9/lib/* $TOP_DIR/build/assets
-elif [ "$DEBIAN_BUILD" == 1 ]; then
-    # UBUNTU_LIBDIR can be UBUNTU22 or UBUNTU24 depending on the version
-    echo "Copying assets from path $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/"
-    cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/* $TOP_DIR/build/assets
-fi
+# Auto-detect environment from UBUNTU_LIBDIR and copy appropriate assets
+echo "Copying assets from path $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/"
+cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/$UBUNTU_LIBDIR/lib/* $TOP_DIR/build/assets
 
-echo "Building DCM binary for $UBUNTU_VERSION"
-go build -ldflags "-s -w -X main.Version=$VERSION -X main.GitCommit=$GIT_COMMIT -X main.BuildDate=$BUILD_DATE " -o dcm_build $TOP_DIR/cmd/deviceconfigmanager/main.go
+echo "Building Unified DCM binary for $UBUNTU_VERSION"
+go build -ldflags "-s -w -X main.Version=$VERSION -X main.GitCommit=$GIT_COMMIT -X main.BuildDate=$BUILD_DATE " -o dcm_build_unified $TOP_DIR/cmd/deviceconfigmanager/main.go
+cp dcm_build_unified $TOP_DIR/bin/device-config-manager-$UBUNTU_VERSION
+rm -rf dcm_build_unified $TOP_DIR/build/
 
 if [ $? -ne 0 ]; then
-echo "DCM build failed. Exiting..."
+echo "Unified DCM build failed. Exiting..."
 exit 1
 fi
 
-echo "Sucessfully build DCM binary for $UBUNTU_VERSION"
-cp dcm_build $TOP_DIR/bin/device-config-manager-$UBUNTU_VERSION
-
-rm -rf dcm_build $TOP_DIR/build/
+echo "Successfully built Unified DCM binary for $UBUNTU_VERSION"

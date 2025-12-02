@@ -21,11 +21,15 @@ import "time"
 const (
 	// config map json path inside k8
 	JsonFilePath            = "/etc/config-manager/config.json"
+	JsonFilePathAinic       = "/etc/config-manager-ainic/ainic_config.json"
 	DefaultComputePartition = "SPX"
 	DefaultMemoryPartition  = "NPS1"
 	DefaultProfileName      = "default"
 	LabelKey                = "dcm.amd.com/gpu-config-profile"
 	StateLabelKey           = "dcm.amd.com/gpu-config-profile-state"
+	AinicLabelKey           = "dcm.amd.com/nic-config-profile"
+	AinicStateLabelKey      = "dcm.amd.com/nic-config-profile-state"
+	RebootNeededLabelKey    = "dcm.amd.com/reboot-needed"
 
 	EventSourceComponentName       = "amd-device-config-manager"
 	K8EventInvalidComputeType      = "InvalidComputeType"
@@ -41,6 +45,27 @@ const (
 	K8EventInvalidJSONInConfigMap  = "InvalidJSONInConfigMap"
 	K8EventAMDSMIAPIFailure        = "AMDSMIAPIFailure"
 	K8EventDuplicateProfile        = "DuplicateProfileExists"
+
+	// AINIC-specific events
+	K8EventAINICConfigurationStarted          = "AINICConfigurationStarted"
+	K8EventAINICConfigurationSuccessful       = "AINICConfigurationSuccessful"
+	K8EventAINICProfileValidationFailed       = "AINICProfileValidationFailed"
+	K8EventAINICCardCoverageValidationFailed  = "AINICCardCoverageValidationFailed"
+	K8EventAINICPortCoverageValidationFailed  = "AINICPortCoverageValidationFailed"
+	K8EventAINICPortProfileValidationFailed   = "AINICPortProfileValidationFailed"
+	K8EventAINICDCQCNCoverageValidationFailed = "AINICDCQCNCoverageValidationFailed"
+	K8EventAINICCardProfileApplyFailed        = "AINICCardProfileApplyFailed"
+	K8EventAINICCardProfileApplySuccess       = "AINICCardProfileApplySuccess"
+	K8EventAINICVFApplyFailed                 = "AINICVFApplyFailed"
+	K8EventAINICVFApplySuccess                = "AINICVFApplySuccess"
+	K8EventAINICConfigPreferenceApplyFailed   = "AINICConfigPreferenceApplyFailed"
+	K8EventAINICConfigPreferenceApplySuccess  = "AINICConfigPreferenceApplySuccess"
+	K8EventAINICPortProfileApplyFailed        = "AINICPortProfileApplyFailed"
+	K8EventAINICPortProfileApplySuccess       = "AINICPortProfileApplySuccess"
+	K8EventAINICDCQCNProfileApplyFailed       = "AINICDCQCNProfileApplyFailed"
+	K8EventAINICDCQCNProfileApplySuccess      = "AINICDCQCNProfileApplySuccess"
+	K8EventAINICNicctlCommandFailed           = "AINICNicctlCommandFailed"
+	K8EventAINICRebootRequired                = "AINICRebootRequired"
 )
 
 var ValidComputePartitions = []string{"SPX", "CPX", "DPX", "QPX"}

@@ -32,7 +32,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"reflect"
 	"slices"
 	"sync"
 	"time"
@@ -40,14 +39,12 @@ import (
 
 	partition_pb "github.com/ROCm/device-config-manager/gen/partition"
 	"github.com/ROCm/device-config-manager/pkg/amdgpu/k8sclient"
-	"github.com/ROCm/device-config-manager/pkg/config_manager/globals"
-	types "github.com/ROCm/device-config-manager/pkg/config_manager/interface"
-	utils "github.com/ROCm/device-config-manager/pkg/partition/utils"
-	"github.com/fsnotify/fsnotify"
+	"github.com/ROCm/device-config-manager/pkg/globals"
+	types "github.com/ROCm/device-config-manager/pkg/interface"
+	utils "github.com/ROCm/device-config-manager/pkg/utils"
 	log_e "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 var kc *k8sclient.K8sClient = k8sclient.NewClient(context.Background())
@@ -132,61 +129,20 @@ func getAMDSMIStatusString(code int) string {
 	return "UNKNOWN_STATUS"
 }
 
+// configManagerFileChangeCallback handles file change events for config manager
+func configManagerFileChangeCallback() {
+	selectedProfile, err := GetPartitionProfile()
+	if err != nil {
+		log_e.Errorf("err: %+v", err)
+	}
+	if selectedProfile != "" {
+		TriggerRetryLoop(selectedProfile, "configmap watcher")
+	}
+}
+
 func StartFileWatcher(selectedProfile string) {
-	log.Printf("Adding file watcher for %v", globals.JsonFilePath)
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Print(err)
-		return
-	}
-	defer watcher.Close()
-
-	if _, err := os.Stat(globals.JsonFilePath); os.IsNotExist(err) {
-		<-make(chan struct{})
-	}
-	// Add the JSON file to the watcher
-	err = watcher.Add(globals.JsonFilePath)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	log.Printf("starting file watcher for %v", globals.JsonFilePath)
-	// Watch for changes
-	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					log.Print("Event channel closed")
-					return
-				}
-				if event.Has(fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename) {
-					log.Print("Detected changes in config.json, re-reading the file.")
-					selectedProfile, err := GetPartitionProfile()
-					if err != nil {
-						log_e.Errorf("err: %+v", err)
-					}
-					if selectedProfile != "" {
-						TriggerRetryLoop(selectedProfile, "configmap watcher")
-					}
-				} else {
-					log.Printf("Event %v", event)
-				}
-				watcher.Remove(globals.JsonFilePath)
-				watcher.Add(globals.JsonFilePath)
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					log.Print("Event channel closed, error")
-					return
-				}
-				log.Print("Error:", err)
-			}
-		}
-	}()
-
-	// Keep the program running
-	<-make(chan struct{})
+	// Use the common utility function with config manager-specific callback
+	utils.StartFileWatcher(globals.JsonFilePath, configManagerFileChangeCallback)
 }
 
 func convertComputePartitonType(partitionType string) C.amdsmi_compute_partition_type_t {
@@ -914,70 +870,17 @@ func PartitionGPU(selectedProfile string) error {
 	}
 }
 
-func printAndApplyLabelChanges(oldLabels, newLabels map[string]string) {
-	// Check for added or updated labels
-	for key, newVal := range newLabels {
-		if key == globals.LabelKey && newVal != "" {
-			if oldVal, exists := oldLabels[key]; !exists || oldVal != newVal {
-				log.Printf("\nNEW TRIGGER ALERT FROM NODE LABELS\n")
-				log.Printf("Label changed: %s\nOld value: %s\nNew value: %s\n", key, oldVal, newVal)
-				selectedProfile, err := GetPartitionProfile()
-				if err != nil {
-					log_e.Errorf("err: %+v", err)
-				}
-				if selectedProfile != "" {
-					TriggerRetryLoop(selectedProfile, "nodelabel watcher")
-				}
-			}
-		}
-	}
-
-	// Check for removed labels
-	for key, oldVal := range oldLabels {
-		if _, exists := newLabels[key]; !exists {
-			if key == globals.LabelKey {
-				log.Printf("Label removed: %s\nOld value: %s\n", key, oldVal)
-			}
-		}
-	}
-}
-
 func NodeLabelWatcher() {
-
-	nodeInformer := kc.GetNodeInformer(nodeName)
-
-	// Set up event handlers for the node informer
-	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			oldNode := oldObj.(*v1.Node)
-			newNode := newObj.(*v1.Node)
-			if !reflect.DeepEqual(oldNode.Labels, newNode.Labels) {
-				printAndApplyLabelChanges(oldNode.Labels, newNode.Labels)
-			}
-		},
+	// Use common utils function with GPU-specific callback
+	utils.NodeLabelWatcher(kc, nodeName, globals.LabelKey, func() {
+		selectedProfile, err := GetPartitionProfile()
+		if err != nil {
+			log_e.Errorf("err: %+v", err)
+		}
+		if selectedProfile != "" {
+			TriggerRetryLoop(selectedProfile, "nodelabel watcher")
+		}
 	})
-
-	// Start the informer
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-
-	go func() {
-		// Creating a timer to prevent blockage of code execution
-		timer := time.NewTimer(100 * time.Second)
-		<-timer.C
-		// Stop the Node Informer after the timer expires
-	}()
-
-	go nodeInformer.Run(stopCh)
-
-	// Wait for the informer to sync
-	if !cache.WaitForCacheSync(stopCh, nodeInformer.HasSynced) {
-		log_e.Errorf("Failed to sync informers")
-	}
-
-	log.Print("Node Informer started and will run for 100 seconds.")
-	// Keep the function running
-	<-make(chan struct{})
 }
 
 func RetryPartition(ctx context.Context, selectedProfile string) {

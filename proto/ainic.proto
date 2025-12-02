@@ -1,0 +1,108 @@
+syntax = "proto3";
+package nicconfig;
+option go_package = "gen/ainic";
+
+enum ClassificationType {
+  CLASSIFICATION_TYPE_UNSPECIFIED = 0;
+  dscp = 1;
+  pcp = 2;
+}
+
+enum DeviceType {
+  DEVICE_TYPE_UNSPECIFIED = 0;
+  PF_ALL = 1;
+  VF_ALL = 2;
+  ALL = 3;
+}
+
+message DCQCNProfile {
+  uint64 token_bucket_size = 1;
+  uint32 rate_increase_byte_count = 2;
+  uint32 rate_reduce_monitor_period = 3;
+  uint32 initial_alpha_value = 4;
+  uint32 alpha_update_g = 5;
+  uint32 ai_rate = 6;
+  uint32 hai_rate = 7;
+  uint32 alpha_update_interval = 8;
+  uint32 cnp_dscp = 9;
+  bool disable = 10;
+  bool clamp_target_rate_en = 11;
+  uint32 min_rate = 12;
+  uint32 rate_increase_threshold = 13;
+  uint32 rate_increase_interval = 14;
+}
+
+message DscpToPriorityRule {
+  repeated string dscp = 1; // supports values or ranges as strings
+  int32 priority = 2;
+}
+
+message PfcConfig {
+  int32 priority = 1;
+  string no_drop = 2; // "enable" or "disable"
+}
+
+message SchedulingConfig {
+  repeated uint32 priority = 1;
+  repeated uint32 rate_limit = 2;
+  repeated uint32 dwrr = 3;
+}
+
+message PortProfile {
+  string pause_type = 1;
+  int32 mtu = 2;
+  string admin_state = 3;
+  string auto_neg = 4;
+  string fec_type = 5;
+  string rx_pause = 6;
+  string tx_pause = 7;
+  string speed = 8;
+  ClassificationType classification_type = 9;
+  repeated DscpToPriorityRule dscp_to_priority = 10;
+  PfcConfig pfc = 11;
+  SchedulingConfig scheduling = 12;
+}
+
+// Top-level NIC profile match filter
+message NicMatchFilter {
+  string card_id = 1;
+  repeated string pcie_address = 2;
+}
+
+// DCQCN-specific match filter
+message DcqcnMatchFilter {
+  string dev_id = 1;
+}
+
+// DCQCN entry inside a NIC profile
+message NicProfileDcqcnEntry {
+  repeated DcqcnMatchFilter match_filters_dcqcn = 1;
+  repeated string profiles = 2; // e.g., ["p1", "p2"]
+}
+
+// The NIC profile itself
+message NicProfile {
+  repeated NicMatchFilter match_filters = 1; // top-level NIC match filters
+  string card_profile = 2;
+  string config_preference = 3;
+  map<string, string> port_profile = 4; // port interface to port profile mapping, e.g., {"eth1/1": "pp2", "eth1/2": "pp1"}
+  repeated NicProfileDcqcnEntry dcqcn = 5;
+  int32 vf_count = 6;
+}
+
+// Node profile structure
+message NodeProfile {
+  repeated string nicprofiles = 1;
+  string reboot_type = 2;
+}
+
+message Config {
+  // caches
+  map<string, DCQCNProfile> dcqcn_profiles = 1;
+  map<string, PortProfile> port_profiles = 2;
+
+  map<string, NicProfile> nicProfiles = 3;
+  map<string, NodeProfile> nodeProfiles = 4;
+  // honoured in debian mode only
+  string selectednodeProfile = 5;
+}

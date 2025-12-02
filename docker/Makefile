@@ -5,6 +5,8 @@ IMAGE_TAG_BASE ?= $(DOCKER_REGISTRY)/$(IMAGE_NAME)
 IMAGE_TAG ?= dev
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMAGE_TAG_BASE):$(IMAGE_TAG)
+# Version tag for the Docker image (can be overridden by CI/release pipeline)
+VER ?= dev
 
 # name used for saving the container images as tar.gz
 DOCKER_CONTAINER_IMG = $(IMAGE_NAME)-$(IMAGE_TAG)
@@ -12,11 +14,12 @@ HOURLY_TAG_LABEL ?= latest
 
 .PHONY: docker
 docker:
-	@echo "building amd config manager docker container"
+	@echo "Building unified DCM Docker container"
 	@echo "HOURLY_TAG : $(HOURLY_TAG_LABEL)"
-	@TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) HOURLY_TAG_LABEL=$(HOURLY_TAG_LABEL) ./build_config_manager_release_docker.sh -s
+	@TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) HOURLY_TAG_LABEL=$(HOURLY_TAG_LABEL) VER=$(VER) ./build_config_manager_release_docker.sh -s
 
+.PHONY: docker-publish
 docker-publish:
-	@echo "publishing amd config manager docker container"
+	@echo "Publishing unified DCM Docker container"
 	@echo "HOURLY_TAG : $(HOURLY_TAG_LABEL)"
-	@TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) HOURLY_TAG_LABEL=$(HOURLY_TAG_LABEL) ./build_config_manager_release_docker.sh -p
+	@TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) HOURLY_TAG_LABEL=$(HOURLY_TAG_LABEL) VER=$(VER) ./build_config_manager_release_docker.sh -p

@@ -1,0 +1,175 @@
+{
+    "dcqcn_profiles":
+    {
+        "p1": {
+            "tokenBucketSize": 800000,
+            "rateIncreaseByteCount": 431068,
+            "rateReduceMonitorPeriod": 1,
+            "initialAlphaValue": 64,
+            "alphaUpdateG": 512,
+            "aiRate": 160,
+            "haiRate": 300,
+            "alphaUpdateInterval": 1,
+            "cnpDscp": 46,
+            "clampTargetRateEn": false,
+            "minRate": 1,
+            "rateIncreaseThreshold": 5,
+            "rateIncreaseInterval": 5
+        },
+        "p2": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+        "p3": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+        "p4": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+        "p5": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+        "p6": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+        "p7": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+        "p8": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 }
+    },
+    "port_profiles":
+    {
+        "pp1": { "pause_type": "pfc" , "mtu": 9064, "rx_pause": "enable", "tx_pause": "enable"},
+        "pp2": {
+            "admin_state": "up",
+            "auto_neg": "disable",
+            "fec_type": "rs",
+            "mtu": 9064,
+            "pause_type": "pfc",
+            "rx_pause": "enable",
+            "tx_pause": "enable",
+            "speed": "100g",
+            "classification_type": "dscp",
+            "dscp_to_priority": [
+                {
+                    "dscp": ["10"],
+                    "priority": 0
+                },
+                {
+                    "dscp": ["46"],
+                    "priority": 6
+                },
+                {
+                    "dscp": ["0-9", "11-45", "47-63"],
+                    "priority": 1
+                }
+            ],
+            "pfc": {
+                "priority": 0,
+                "no_drop": "enable"
+            },
+            "scheduling": {
+                "priority": [0, 1, 7],
+                "rate_limit": [0, 0, 10],
+                "dwrr": [99, 1, 0]
+            }
+        }
+    },
+    "nodeProfiles": {
+        "nodeprof0": {"nicprofiles":["nicprof0_1"], "reboot_type":"cold"},
+        "nodeprof1": {"nicprofiles":["nicprof2", "nicprof5"], "reboot_type":"cold"},
+        "nodeprof2": {"nicprofiles":["nicprof2"], "reboot_type":"cold"},
+        "nodeprof3": {"nicprofiles":["nicprof1", "nicprof2"], "reboot_type":"cold"},
+        "nodeprof4": {"nicprofiles":["nicprof5"], "reboot_type":"cold"},
+        "nodeprof5": {"nicprofiles":["nicprof6"], "reboot_type":"cold"},
+        "nodeprof6": {"nicprofiles":["nicprof5", "nicprof6"], "reboot_type":"cold"}
+    },
+    "nicProfiles": {
+        "nicprof0_1":
+        {
+            "match_filters" : [ {"card_id" : "all"}],
+            "card_profile" : "default",
+            "config_preference" : "workload",
+            "port_profile" : {"all": "pp2"},
+            "vf_count" : 1,
+            
+            "dcqcn" : [ 
+                        {"match_filters_dcqcn" : [{"dev_id" : "all"}] , "profiles":["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"]}
+                        ]
+        },
+        "nicprof0_2":
+        {
+            "match_filters" : [ {"card_id" : "all"}],
+            "card_profile" : "pf1_vf1",
+            "config_preference" : "workload",
+            "port_profile" : {"all": "pp1"},
+            "vf_count" : 1,
+            
+            "dcqcn" : [ 
+                        {"match_filters_dcqcn" : [{"dev_id" : "pf_all"}] , "profiles":["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"]},
+                        {"match_filters_dcqcn" : [{"dev_id" : "vf_all"}] , "profiles":["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"]}
+                        ]
+        },
+        "nicprof1":
+        {
+            "match_filters" : [ {"card_id" : "all"}, {"pcie_address" : ["000:50:11"]} ],
+            "card_profile" : "pf_default",
+            "config_preference" : "workload",
+            "port_profile" : {"all": "pp2"},
+            "vf_count" : 1,
+            
+            "dcqcn" : [ 
+                        {"match_filters_dcqcn" : [{"dev_id" : "all"}] , "profiles":["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"]}
+                        ]
+        },
+        "nicprof2":
+        {
+            "match_filters" : [ {"card_id" : "all"}, {"pcie_address" : ["0000:41:00.0", "0000:82:00.0"]} ],
+            "card_profile" : "pf1_vf1",
+            "config_preference" : "provider",
+            "port_profile" : {"all": "pp2"},
+            "vf_count" : 4,
+            
+            "dcqcn" : [ 
+                        {"match_filters_dcqcn" : [{"dev_id" : "all"}] , "profiles":["p1"]}                        ]
+        },
+        "nicprof3":
+        {
+            "match_filters" : [ {"card_id" : "all"}, {"pcie_address" : ["0000:41:00.0", "0000:82:00.0"]} ],
+            "card_profile" : "pf1_vf1",
+            "config_preference" : "workload",
+            "port_profile" : {"all": "pp2"},
+            "vf_count" : 3,
+            
+            "dcqcn" : [ 
+                        {"match_filters_dcqcn" : [{"dev_id" : "all"}] , "profiles":["p1", "p1", "p1", "p1", "p1", "p1", "p1", "p8"]}
+                        ]
+        },
+        "nicprof4":
+        {
+            "match_filters" : [ {"card_id" : "pollara"}],
+            "card_profile" : "pf1_vf1",
+            "config_preference" : "workload",
+            "port_profile" : {"all": "pp2"},
+            "vf_count" : 1,
+            
+            "dcqcn" : [ 
+                        {"match_filters_dcqcn" : [{"dev_id" : "roceo3"}] , "profiles":["p1", "p1", "p1", "p1", "p1", "p1", "p1", "p1"]},
+                        {"match_filters_dcqcn" : [{"dev_id" : "roce04"}] , "profiles":["p1", "p1", "p1", "p1", "p1", "p1", "p1", "p1"]}
+                        ]
+        },
+        "nicprof5":
+        {
+            "match_filters" : [ {"card_id" : "pollara"}, {"pcie_address" : ["0000:81:00.0"]}],
+            "card_profile" : "pf1_vf1",
+            "config_preference" : "workload",
+            "port_profile" : {"eth1/1": "pp1"},
+            "vf_count" : 7,
+            
+            "dcqcn" : [ 
+                        {"match_filters_dcqcn" : [{"dev_id" : "rocep132s0"}] , "profiles":["p1", "p1", "p1", "p1", "p1", "p1", "p1", "p1"]},
+                        {"match_filters_dcqcn" : [{"dev_id" : "ionic_1"}] , "profiles":["p1", "p1", "p1", "p1", "p1", "p1", "p1", "p1"]}
+                    ]
+        },
+        "nicprof6":
+        {
+            "match_filters" : [ {"card_id" : "pollara"}, {"pcie_address" : ["0000:81:00.0"]}],
+            "card_profile" : "pf1_vf1",
+            "config_preference" : "workload",
+            "port_profile" : {"eth1/1": "pp2", "eth1/2": "pp1"},
+            "vf_count" : 2,
+            
+            "dcqcn" : [ 
+                        {"match_filters_dcqcn" : [{"dev_id" : "all"}] , "profiles":["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"]}
+                    ]
+        }
+    },
+    "selectednodeProfile": "nodeprof1"
+}

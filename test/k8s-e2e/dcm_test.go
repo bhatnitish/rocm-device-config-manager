@@ -110,6 +110,7 @@ func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
 		fmt.Sprintf("service.type=NodePort"),
 		fmt.Sprintf("configMap=%v", configmapName),
 		"image.pullPolicy=IfNotPresent",
+		"createGpuConfigMap=false", // E2E creates ConfigMap manually
 	}
 
 	err = s.k8sclient.CreateConfigMap(ctx, s.ns, configmapName)

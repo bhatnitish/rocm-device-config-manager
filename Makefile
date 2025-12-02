@@ -37,10 +37,12 @@ export DCM_IMAGE_TAG
 export RHEL_BASE_IMAGE
 export RHEL_BASE_MIN_IMAGE
 export RHEL_REPO_URL
+export REGISTRY
 
 TOP_DIR := $(PWD)
 HELM_CHARTS_DIR := $(TOP_DIR)/helm-charts
-PKG_LIB_PATH := ${TOP_DIR}/debian/usr/local/
+PKG_LIB_PATH := ${TOP_DIR}/debian/usr/local/configs/
+PKG_CONFIG_PATH := ${TOP_DIR}/debian/etc/dcm/
 ASSETS_PATH :=${TOP_DIR}/assets
 
 RHEL_VERSION = rhel
@@ -67,6 +69,7 @@ BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
 
 AMD_SMI_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_LIBDIR}/lib
 PKG_PATH := ${TOP_DIR}/debian/usr/local/bin
+PROTOS_PATH := $(TOP_DIR)/proto
 
 # External repo builders
 AMDSMI_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.4
@@ -164,17 +167,32 @@ clean:
 	rm -rf pkg/configmanager/bin
 	rm -r $(TOP_DIR)/build/assets
 
-.PHONY: dcm
-dcm:
-	${MAKE} -C cmd/deviceconfigmanager build run ARGS="-k" TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(RHEL_VERSION) UBUNTU_LIBDIR=$(RHEL_LIBDIR) GIT_COMMIT=$(GIT_COMMIT) VERSION=$(VERSION) BUILD_DATE=$(BUILD_DATE)
+# Unified DCM Build Targets
+# ENV: k8s (default) | debian
 
-.PHONY: dcm-st
-dcm-st:
-	${MAKE} -C cmd/deviceconfigmanager build-st run-st ARGS="-d" TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR) GIT_COMMIT=$(GIT_COMMIT) VERSION=$(VERSION) BUILD_DATE=$(BUILD_DATE)
+.PHONY: dcm-binary
+dcm-binary:
+	@echo "Building unified DCM binary (ENV=$(or $(ENV),k8s))"
+	@if [ "$(ENV)" = "debian" ]; then \
+		echo "Building for Debian/Standalone environment"; \
+		${MAKE} -C cmd/deviceconfigmanager build-st run-st TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) UBUNTU_LIBDIR=$(UBUNTU_LIBDIR) GIT_COMMIT=$(GIT_COMMIT) VERSION=$(VERSION) BUILD_DATE=$(BUILD_DATE); \
+	else \
+		echo "Building for Kubernetes environment"; \
+		${MAKE} -C cmd/deviceconfigmanager build run TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(RHEL_VERSION) UBUNTU_LIBDIR=$(RHEL_LIBDIR) GIT_COMMIT=$(GIT_COMMIT) VERSION=$(VERSION) BUILD_DATE=$(BUILD_DATE); \
+	fi
 
 .PHONY: dcm-docker
-dcm-docker:
-	${MAKE} -C docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(RHEL_VERSION) UBUNTU_LIBDIR=$(RHEL_LIBDIR)
+dcm-docker: 
+	@echo "Building unified DCM Docker image"
+	@${MAKE} -C docker docker TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(RHEL_VERSION) UBUNTU_LIBDIR=$(RHEL_LIBDIR)
+
+# Convenience targets for backward compatibility and ease of use
+.PHONY: dcm dcm-st
+dcm: 
+	@$(MAKE) dcm-binary ENV=k8s
+
+dcm-st:
+	@$(MAKE) dcm-binary ENV=debian
 
 .PHONY: docker-publish
 docker-publish:
@@ -182,7 +200,7 @@ docker-publish:
 
 .PHONY:all
 all:
-	${MAKE} dcm
+	${MAKE} dcm-binary
 	${MAKE} dcm-docker
 
 copyrights:
@@ -238,7 +256,7 @@ pkg-clean:
 
 .PHONY: pkg
 pkg: pkg-clean
-	${MAKE} dcm
+	${MAKE} dcm-binary ENV=debian
 	@echo "Building debian for $(BUILD_VER_ENV)"
 	@echo "Build path ${BUILD_PKG_PATH}"
 	#copy precompiled libs
@@ -250,13 +268,30 @@ pkg: pkg-clean
 	strip ${PKG_PATH}/device-config-manager-$(UBUNTU_VERSION)
 	cd ${TOP_DIR}
 	sed -i "s/BUILD_VER_ENV/$(BUILD_VER_ENV)/g" $(DEBIAN_CONTROL)
+	sed -i "s/UBUNTU_VERSION_PLACEHOLDER/$(UBUNTU_VERSION)/g" debian/usr/lib/systemd/system/amd-config-manager.service
 	dpkg-deb -Zxz --build debian ${TOP_DIR}/bin
 	#remove copied files
 	rm -rf ${PKG_LIB_PATH}
 	# revert the dynamic version set file
 	git checkout $(DEBIAN_CONTROL)
+	git checkout debian/usr/lib/systemd/system/amd-config-manager.service
 	# rename for internal build
 	mv -vf ${TOP_DIR}/bin/amdgpu-configmanager_*~${UBUNTU_VERSION_NUMBER}_amd64.deb ${TOP_DIR}/bin/amdgpu-configmanager_${UBUNTU_VERSION_NUMBER}_amd64.deb
+
+.PHONY: pkg-ainic
+pkg-ainic: 
+	@echo "AINIC and GPU packages are now unified - using same 'pkg' target"
+	@$(MAKE) pkg
+
+.PHONY: pkg-jammy
+pkg-jammy:
+	@echo "Building unified DCM package for Ubuntu 22.04 (jammy)"
+	@$(MAKE) pkg UBUNTU_VERSION=jammy
+
+.PHONY: pkg-noble
+pkg-noble:
+	@echo "Building unified DCM package for Ubuntu 24.04 (noble)"
+	@$(MAKE) pkg UBUNTU_VERSION=noble
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -280,9 +315,12 @@ mod:
 .PHONY:checks
 checks: fmt
 
-.PHONY: e2e
+.PHONY: e2e test-ainic
 e2e:
 	${MAKE} -C test/k8s-e2e all TOP_DIR=$(TOP_DIR)
+
+test-ainic:
+	${MAKE} -C test/k8s-e2e test-ainic TOP_DIR=$(TOP_DIR)
 
 .PHONY: update-submodules
 update-submodules:
@@ -329,6 +367,16 @@ gopkglist:
 .PHONY: gen
 gen: gopkglist
 	${MAKE} -C proto/ all
+
+.PHONY: gen-ainic-proto
+gen-ainic-proto: gopkglist
+	@echo "building ainic proto"
+	@protoc --proto_path=proto --go-grpc_out=. --go_out=. proto/ainic.proto
+
+.PHONY: gen-gpu-proto
+gen-gpu-proto: gopkglist
+	@echo "building gpu/partition proto"
+	@protoc --proto_path=proto --go-grpc_out=. --go_out=. proto/partition.proto
 
 .PHONY: copy-assets-k8s
 copy-assets-k8s:

@@ -4,11 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"reflect"
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/godbus/dbus/v5"
 	log_e "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 const serviceDivider = "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
@@ -208,4 +213,165 @@ func CheckUnitStatusHandler(svc string, exp_status string) bool {
 		return false
 	}
 	return true
+}
+
+func IsKubernetes() bool {
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+		log.Println("Running inside a Kubernetes pod")
+		return true
+	} else {
+		log.Println("Running as a service (debian)")
+	}
+	return false
+}
+
+func IntsToCSV(values []uint32) string {
+	strs := make([]string, len(values))
+	for i, v := range values {
+		strs[i] = fmt.Sprintf("%d", v)
+	}
+	return strings.Join(strs, ",")
+}
+
+// FileChangeCallback defines the function signature for file change callbacks
+type FileChangeCallback func()
+
+func StartFileWatcher(filePath string, callback FileChangeCallback) {
+	log.Printf("Adding file watcher for %v", filePath)
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Printf("Failed to create file watcher: %v", err)
+		return
+	}
+	defer watcher.Close()
+
+	// Check if file exists, retry for 30 minutes with 60s intervals
+	retryInterval := 30 * time.Second
+	timeout := 30 * time.Minute
+	deadline := time.Now().Add(timeout)
+
+	for {
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			if time.Now().After(deadline) {
+				log.Printf("File %s does not exist after 30 minutes of polling, giving up on file watcher setup", filePath)
+				return
+			}
+			log.Printf("File %s does not exist, will retry in 30 seconds (timeout in %.0f minutes)",
+				filePath, time.Until(deadline).Minutes())
+			time.Sleep(retryInterval)
+			continue
+		}
+		// File exists, proceed with setup
+		log.Printf("File %s found, proceeding with file watcher setup", filePath)
+		break
+	}
+
+	// Add the JSON file to the watcher
+	err = watcher.Add(filePath)
+	if err != nil {
+		log.Printf("Failed to add file to watcher: %v", err)
+		return
+	}
+
+	log.Printf("Starting file watcher for %v", filePath)
+
+	// Watch for changes
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					log.Print("Event channel closed")
+					return
+				}
+				if event.Has(fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename) {
+					log.Print("Detected changes in config file, triggering callback...")
+					callback()
+				} else {
+					log.Printf("Unhandled event: %v", event)
+				}
+				// Re-add the file to the watcher after changes
+				watcher.Remove(filePath)
+				watcher.Add(filePath)
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					log.Print("Error channel closed")
+					return
+				}
+				log.Printf("File watcher error: %v", err)
+			}
+		}
+	}()
+
+	// Keep the program running
+	<-make(chan struct{})
+}
+
+// NodeLabelChangeCallback defines the function signature for node label change callbacks
+type NodeLabelChangeCallback func()
+
+func PrintAndApplyLabelChanges(oldLabels, newLabels map[string]string, labelKey string, onLabelChange NodeLabelChangeCallback) {
+	// Check for added or updated labels
+	for key, newVal := range newLabels {
+		if key == labelKey && newVal != "" {
+			if oldVal, exists := oldLabels[key]; !exists || oldVal != newVal {
+				log.Printf("\nNEW TRIGGER ALERT FROM NODE LABELS\n")
+				log.Printf("Label changed: %s\nOld value: %s\nNew value: %s\n", key, oldVal, newVal)
+				onLabelChange()
+			}
+		}
+	}
+
+	// Check for removed labels
+	for key, oldVal := range oldLabels {
+		if _, exists := newLabels[key]; !exists {
+			if key == labelKey {
+				log.Printf("Label removed: %s\nOld value: %s\n", key, oldVal)
+			}
+		}
+	}
+}
+
+func NodeLabelWatcher(kc interface{}, nodeName string, labelKey string, onLabelChange NodeLabelChangeCallback) {
+	// Type assertion to get the GetNodeInformer method
+	type K8sClient interface {
+		GetNodeInformer(string) cache.SharedIndexInformer
+	}
+
+	k8sClient := kc.(K8sClient)
+	nodeInformer := k8sClient.GetNodeInformer(nodeName)
+
+	// Set up event handlers for the node informer
+	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldNode := oldObj.(*v1.Node)
+			newNode := newObj.(*v1.Node)
+			if !reflect.DeepEqual(oldNode.Labels, newNode.Labels) {
+				PrintAndApplyLabelChanges(oldNode.Labels, newNode.Labels, labelKey, onLabelChange)
+			}
+		},
+	})
+
+	// Start the informer
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	go func() {
+		// Creating a timer to prevent blockage of code execution
+		timer := time.NewTimer(100 * time.Second)
+		<-timer.C
+		// Stop the Node Informer after the timer expires
+	}()
+
+	go nodeInformer.Run(stopCh)
+
+	// Wait for the informer to sync
+	if !cache.WaitForCacheSync(stopCh, nodeInformer.HasSynced) {
+		log_e.Errorf("Failed to sync informers")
+	}
+
+	log.Print("Node Informer started and will run for 100 seconds.")
+	// Keep the function running
+	<-make(chan struct{})
 }

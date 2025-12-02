@@ -61,8 +61,14 @@ spec:
             name: libmodules
           - mountPath: /var/lib/
             name: health
+          {{- if .Values.configMap }}
           - mountPath: /etc/config-manager/
             name: {{ .Values.configMap }}-volume
+          {{- end }}
+          {{- if .Values.ainicConfigMap }}
+          - mountPath: /etc/config-manager-ainic/
+            name: {{ .Values.ainicConfigMap }}-volume
+          {{- end }}
           - mountPath: /etc/systemd
             name: etc-systemd
           - mountPath: /run/systemd
@@ -71,6 +77,12 @@ spec:
             name: usr-lib-systemd
           - mountPath: /var/run/dbus
             name: var-run-dbus
+          - mountPath: /usr/sbin/nicctl
+            name: nicctl
+          - mountPath: /opt/amd
+            name: opt-amd
+          - mountPath: /etc/amd/ainic
+            name: ainicMetaData
 
           workingDir: /root
       tolerations:
@@ -111,6 +123,25 @@ spec:
           path: /var/run/dbus
           type: Directory
         name: var-run-dbus
+      - hostPath:
+          path: /usr/sbin/nicctl
+          type: File
+        name: nicctl
+      - hostPath:
+          path: /opt/amd
+          type: Directory
+        name: opt-amd
+      - hostPath:
+          path: /etc/amd/ainic
+          type: Directory
+        name: ainicMetaData
+      {{- if .Values.configMap }}
       - name: {{ .Values.configMap }}-volume
         configMap:
           name: {{ .Values.configMap }}
+      {{- end }}
+      {{- if .Values.ainicConfigMap }}
+      - name: {{ .Values.ainicConfigMap }}-volume
+        configMap:
+          name: {{ .Values.ainicConfigMap }}
+      {{- end }}

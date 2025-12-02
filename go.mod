@@ -10,7 +10,7 @@ require (
 	github.com/mittwald/go-helm-client v0.12.16
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
-	google.golang.org/protobuf v1.36.5
+	google.golang.org/protobuf v1.36.8
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	k8s.io/api v0.32.3
 	k8s.io/apimachinery v0.32.3

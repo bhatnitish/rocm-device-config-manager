@@ -8,6 +8,18 @@ builds:
     sub-area:
     feature:
 
+  build-debian-package-ub22.04:
+    commands: [ "sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make pkg-jammy"]
+    owners: ["email:nkomarla@amd.com"]
+    artifacts:
+        - /device-config-manager/bin/amdgpu-configmanager_22.04_amd64.deb
+
+  build-debian-package-ub24.04:
+    commands: [ "sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make pkg-noble"]
+    owners: ["email:nkomarla@amd.com"]
+    artifacts:
+        - /device-config-manager/bin/amdgpu-configmanager_24.04_amd64.deb
+  
   build-device-config-manager-docker-ubi9:
     commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && HOURLY_TAG_LABEL=$RELEASE make all"]
     owners: ["email:nkomarla@amd.com"]
@@ -32,6 +44,8 @@ targets:
         - build-device-config-manager-docker-ubi9
         - build-helm-artifact
         - build-all
+        - build-debian-package-ub22.04
+        - build-debian-package-ub24.04
 
   docs-sanity:
     commands: [ "sh", "-c", "cd /usr/src/github.com/ROCm/device-config-manager && make docs"]

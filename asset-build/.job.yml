@@ -10,6 +10,8 @@ targets:
     build-dependencies:
       - build-device-config-manager-docker-ubi9
       - build-helm-artifact
+      - build-debian-package-ub22.04
+      - build-debian-package-ub24.04
 
 image:
   bind_dir: "/go/src/github.com/ROCm/device-config-manager"

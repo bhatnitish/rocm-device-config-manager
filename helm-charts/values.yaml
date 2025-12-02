@@ -4,10 +4,23 @@ platform: k8s
 nodeSelector: {}
 
 image:
-  repository: docker.io/rocm/device-config-manager
-  tag: v1.4.1
+  repository: registry.test.pensando.io:5000/device-config-manager
+  tag: dev
   pullPolicy: Always
   initContainerImage: busybox:1.36
 
-# specify configmap name (mandatory)
+# GPU ConfigMap name (optional - required for GPU partitioning)
+# Set to empty string ("") to disable GPU ConfigMap mounting
 configMap: "dcm-st"
+
+# Whether to create the GPU ConfigMap from template
+# Set to false in E2E tests where ConfigMap is created manually
+createGpuConfigMap: true
+
+# AINIC ConfigMap name (optional - required for AINIC configuration)
+# Set to empty string ("") to disable AINIC ConfigMap mounting
+ainicConfigMap: "ainic-config"
+
+# Whether to create the AINIC ConfigMap from template
+# Set to false in E2E tests where ConfigMap is created manually
+createAinicConfigMap: true

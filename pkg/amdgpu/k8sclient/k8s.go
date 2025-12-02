@@ -196,7 +196,7 @@ func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
 	defer cancel()
 
 	if evtObj == nil {
-		log.Printf("k8s client got empty event object, skip genreating k8s event")
+		log.Printf("k8s client got empty event object, skip generating k8s event")
 		return fmt.Errorf("k8s client received empty event object")
 	}
 

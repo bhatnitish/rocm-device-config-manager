@@ -16,7 +16,7 @@
 # REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 #
-# script to generate tarball with config manager docker, entrypoint script
+# script to generate tarball with unified config manager docker, entrypoint script
 # and docker_run script to create the docker container
 
 # ./script.sh -h                # Calls print_help and exits
@@ -28,7 +28,7 @@
 print_help () {
     echo "This script can be used to build a exporter container"
     echo
-    echo "Syntax: $0 [-s -n]"
+    echo "Syntax: $0 [-s -n -p]"
     echo "options:"
     echo "-h    print help"
     echo "-s    prepare a release tarball image"
@@ -58,7 +58,7 @@ while getopts "hsn:p" option; do
     esac
 done
 
-VER=v1
+VER=${VER:-dev}
 if [ -z $RELEASE ]; then
   echo "RELEASE is not set, return"
 else
@@ -77,6 +77,7 @@ rm -rf $IMAGE_DIR
 mkdir -p $IMAGE_DIR
 
 DOCKER_REGISTRY="registry.test.pensando.io:5000/device-config-manager"
+
 IMAGE_URL="${DOCKER_REGISTRY}:${VER}"
 
 echo $TOP_DIR
@@ -85,6 +86,7 @@ sleep 5
 
 # Always use RHEL9 OS for both openshift and K8s env
 cp -r $TOP_DIR/assets/amd_smi_lib/x86_64/RHEL9/lib $TOP_DIR/docker/smilib
+echo "Copying unified DCM binary from $TOP_DIR/bin/device-config-manager-$UBUNTU_VERSION to $TOP_DIR/docker/device-config-manager"
 cp $TOP_DIR/bin/device-config-manager-$UBUNTU_VERSION $TOP_DIR/docker/device-config-manager
 
 if [ "$PUBLISH_IMAGE" == "1" ]; then

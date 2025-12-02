@@ -52,6 +52,7 @@ func (s *E2ESuite) SetUpSuite(c *C) {
 	// use the current context in kubeconfig
 	config, err := clientcmd.BuildConfigFromFlags("", s.kubeconfig)
 	assert.NoError(c, err)
+
 	s.restConfig = config
 
 	// creates the clientset

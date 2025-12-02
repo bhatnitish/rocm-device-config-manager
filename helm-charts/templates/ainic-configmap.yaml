@@ -1,0 +1,97 @@
+{{- if and .Values.ainicConfigMap .Values.createAinicConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.ainicConfigMap }}
+  namespace: {{ .Release.Namespace }}
+data:
+  ainic_config.json: |
+    {
+        "dcqcn_profiles":
+        {
+            "p1": {
+                "tokenBucketSize": 800000,
+                "rateIncreaseByteCount": 431068,
+                "rateReduceMonitorPeriod": 1,
+                "initialAlphaValue": 64,
+                "alphaUpdateG": 512,
+                "aiRate": 160,
+                "haiRate": 300,
+                "alphaUpdateInterval": 1,
+                "cnpDscp": 46,
+                "clampTargetRateEn": false,
+                "minRate": 1,
+                "rateIncreaseThreshold": 5,
+                "rateIncreaseInterval": 5
+            },
+            "p2": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+            "p3": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+            "p4": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+            "p5": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+            "p6": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+            "p7": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 },
+            "p8": { "tokenBucketSize": 800000, "rateIncreaseByteCount": 431068 }
+        },
+        "port_profiles":
+        {
+            "pp1": { 
+                "pause_type": "pfc",
+                "mtu": 1500,
+                "rx_pause": "enable",
+                "tx_pause": "enable"
+            },
+            "pp2": {
+                "pause_type": "pfc",
+                "mtu": 9064,
+                "rx_pause": "enable",
+                "tx_pause": "enable",
+                "classification_type": "dscp",
+                "dscp_to_priority": [
+                    {
+                        "dscp": ["10"],
+                        "priority": 0
+                    },
+                    {
+                        "dscp": ["46"],
+                        "priority": 6
+                    },
+                    {
+                        "dscp": ["0-9", "11-45", "47-63"],
+                        "priority": 1
+                    }
+                ],
+                "pfc": {
+                    "priority": 0,
+                    "no_drop": "enable"
+                },
+                "scheduling": {
+                    "priority": [0, 1, 7],
+                    "rate_limit": [0, 0, 10],
+                    "dwrr": [99, 1, 0]
+                }
+            }
+        },
+        "nodeProfiles": {
+            "default": {
+                "nicprofiles": ["nicprof_default"],
+                "reboot_type": "cold"
+            }
+        },
+        "nicProfiles": {
+            "nicprof_default":
+            {
+                "match_filters": [ {"card_id": "all"} ],
+                "card_profile": "default",
+                "config_preference": "workload",
+                "port_profile": {"all": "pp1"},
+                "vf_count": 1,
+                "dcqcn": [ 
+                    {
+                        "match_filters_dcqcn": [{"dev_id": "all"}],
+                        "profiles": ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"]
+                    }
+                ]
+            }
+        }
+    }
+{{- end }}

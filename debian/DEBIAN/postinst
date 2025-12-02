@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+
+echo "Setting up LD_LIBRARY_PATH..."
+echo 'export LD_LIBRARY_PATH=/usr/local/configs/lib:$LD_LIBRARY_PATH' >> /etc/profile.d/dcm.sh
+chmod +x /etc/profile.d/dcm.sh
