@@ -26,7 +26,7 @@ Device Config Manager (DCM) is a unified component that handles both AMD GPU and
 - RHEL 9 (Kubernetes/OpenShift)
 
 ## Device Support
-- **GPU**: AMD GPUs with ROCM 6.3, 6.4, 7.0
+- **GPU**: AMD GPUs with ROCM 6.3, 6.4, 7.0, 7.2
 - **AINIC**: AMD AI network cards with SR-IOV and RoCE capabilities
 
 ## Quick Start
