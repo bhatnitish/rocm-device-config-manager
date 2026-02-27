@@ -8,7 +8,7 @@
 
 - [Overview](#overview)
 - [Quick Start](#quick-start)
-- [Configuration Reference](#configuration-reference)
+- [Configuration Schema](#configuration-schema-json)
 - [Deployment Modes](#deployment-modes)
 - [Core Operations](#core-operations)
 - [Testing](#testing)
@@ -28,6 +28,7 @@ The Device Config Manager (DCM) is a unified component that handles both AMD GPU
 - **Environment Adaptation**: Automatically adapts behavior for Kubernetes vs Debian deployments
 
 **Key AINIC Configuration Capabilities:**
+
 - **Card Profiles**: VF (Virtual Function) or PF (Physical Function) card profile configuration
 - **SR-IOV Management**: Number of VFs configuration
 - **Config Preference**: Provider vs. Workload mode selection
@@ -36,6 +37,7 @@ The Device Config Manager (DCM) is a unified component that handles both AMD GPU
 - **Physical Port Configuration**: Speed, MTU, and other port parameters
 
 **Deployment Flexibility:**
+
 - **Unified Container**: Single DCM instance handles both GPU and AINIC configurations
 - **Auto-Discovery**: Automatically detects available device configurations
 - **Separate ConfigMaps**: AINIC configurations use different ConfigMaps than GPU configurations
@@ -53,6 +55,7 @@ The Device Config Manager (DCM) is a unified component that handles both AMD GPU
 ### 30-Second Setup
 
 #### Helm Deployment (Recommended)
+
 ```bash
 # 1. Install DCM with AINIC support using Helm
 helm install dcm ./helm-charts \
@@ -70,6 +73,7 @@ kubectl label node <node-name> dcm.amd.com/nic-config-profile=default
 ```
 
 #### Standalone Kubernetes Deployment
+
 ```bash
 # 1. Apply DCM DaemonSet (part of GPU Operator)
 kubectl apply -f dcm-daemonset.yaml
@@ -82,6 +86,7 @@ kubectl label node <node-name> dcm.amd.com/nic-config-profile=nodeprof1
 ```
 
 #### Debian/Ubuntu Deployment
+
 ```bash
 # 1. Download and install DCM package
 wget https://github.com/ROCm/device-config-manager/releases/latest/download/amdgpu-configmanager_24.04_amd64.deb
@@ -95,6 +100,7 @@ sudo systemctl start amd-config-manager
 ```
 
 ### Verify Installation
+
 ```bash
 # Check AINIC devices are detected
 nicctl show card --json
@@ -220,6 +226,7 @@ Card C (uuid-card-c):          Card D (uuid-card-d):
 When you configure a port name, it applies to ALL ports with that name across ALL cards.
 
 **Configuration Example:**
+
 ```json
 {
   "port_profiles": {
@@ -241,11 +248,13 @@ When you configure a port name, it applies to ALL ports with that name across AL
 ```
 
 **What Happens:**
+
 - `eth1/1` → `high_speed` profile applied to 4 ports (one on each card)
 - `eth1/2` → `management` profile applied to 4 ports (one on each card)  
 - `eth1/3` → `disabled` profile applied to 4 ports (via "all" fallback)
 
 **Actual Commands Executed:**
+
 ```bash
 # MTU settings
 nicctl update port -p uuid-a-port1 --mtu 9000     # Card A, eth1/1  
@@ -271,7 +280,8 @@ nicctl update qos -p uuid-a-port1 scheduling --priority 0,1,7 --rate-limit 0,0,1
 
 The system validates that every port has a profile assignment.
 
-**Valid Configuration**
+**Valid Configuration:**
+
 ```json
 "port_profile": {
   "eth1/1": "high_speed",
@@ -279,18 +289,22 @@ The system validates that every port has a profile assignment.
   "all": "disabled"
 }
 ```
+
 Result: PASS - All ports covered (eth1/3 uses "all" fallback)
 
-**Invalid Configuration**
+**Invalid Configuration:**
+
 ```json
 "port_profile": {
   "eth1/1": "high_speed",
   "eth1/2": "management"
 }
 ```
+
 Result: FAIL - eth1/3 ports not covered (no "all" fallback)
 
 **Key Rules:**
+
 1. **One Configuration → Multiple Ports**: `"eth1/1": "profile"` affects ALL eth1/1 ports across ALL cards
 2. **"all" is Fallback**: Ports without specific configuration use "all" profile
 3. **Complete Coverage Required**: Every port must have either specific or "all" assignment
@@ -301,13 +315,17 @@ Result: FAIL - eth1/3 ports not covered (no "all" fallback)
 The `"all"` keyword is special - it applies to **every port that doesn't have a specific configuration**.
 
 **Example with "all" only:**
+
 ```json
 "port_profile": {
   "all": "standard"
 }
 ```
+
 **Result**: ALL ports on ALL cards get the same "standard" profile
+
 **Commands executed:**
+
 ```bash
 # Uses --all flag for efficiency (applies to all ports at once)
 nicctl update port --all --mtu 1500
@@ -316,16 +334,19 @@ nicctl update qos --classification-type DSCP
 # etc...
 ```
 
-**Invalid: Cannot mix specific and "all"**
+**Invalid - Cannot mix specific and "all":**
+
 ```json
 "port_profile": {
   "eth1/1": "high_speed",
   "all": "standard"  
 }
 ```
+
 **Problem**: This creates overlap - eth1/1 ports would get BOTH "high_speed" AND "standard" profiles, which is invalid.
 
 **Correct approach for mixed configuration:**
+
 ```json
 "port_profile": {
   "eth1/1": "high_speed",
@@ -333,6 +354,7 @@ nicctl update qos --classification-type DSCP
   "eth1/3": "standard"
 }
 ```
+
 **Result**: Each port type gets exactly one profile, no overlaps.
 
 ## Configuration Schema (JSON)
@@ -366,6 +388,7 @@ DCQCN (Data Center Quantized Congestion Notification) profiles define congestion
 ```
 
 **Parameters:**
+
 - `cnpDscp`: DSCP value used by Notification Point (NP) for Congestion Notification Packets (CNPs) (recommended: 0)
 - `initialAlphaValue`: Initial value of alpha used by Reaction Point (RP) when receiving the first CNP for a flow (recommended: 1023)
 - `alphaUpdateInterval`: Timer interval period for updating alpha value in microseconds (recommended: 55)
@@ -383,8 +406,7 @@ DCQCN (Data Center Quantized Congestion Notification) profiles define congestion
 
 > [!NOTE]
 > The `disable` parameter can be used to completely disable DCQCN for a specific profile. When set to true, the `--disable` flag is passed to nicctl, overriding all other DCQCN parameters for that profile.
-
-> [!NOTE]
+>
 > DCQCN parameters are highly sensitive to network topology and traffic patterns. Consult AMD documentation for recommended values for your specific use case.
 
 ### 2. Port Profiles (`port_profiles`)
@@ -439,6 +461,7 @@ DCQCN (Data Center Quantized Congestion Notification) profiles define congestion
 ```
 
 **Structure:**
+
 - `nicprofiles`: Array of NIC profile names to apply to the node
 - `reboot_type`: Type of reboot required for profile changes ("cold" or "warm")
 
@@ -463,25 +486,30 @@ The AINIC Device Configuration Manager performs comprehensive validation on port
 ### DSCP to Priority Mapping Validation
 
 **Complete Coverage Check:**
+
 - Validates that all 64 DSCP values (0-63) are mapped to priority queues
 - Ensures no DSCP value is left unmapped
 - Prevents configuration gaps that could cause traffic drops
 
 **Mutual Exclusivity Check:**
+
 - Verifies that each DSCP value is mapped to exactly one priority
 - Prevents conflicting priority assignments for the same DSCP value
 - Ensures deterministic traffic classification
 
 **Priority Range Validation:**
+
 - Validates that all priority values are within the valid range (0-7)
 - Prevents invalid priority assignments that hardware cannot support
 
 **Range Format Support:**
+
 - Supports individual DSCP values: `"dscp": ["10"]`
 - Supports DSCP ranges: `"dscp": ["0-9", "11-45", "47-63"]`
 - Validates range syntax and ensures start ≤ end in ranges
 
 **Example Valid Configuration:**
+
 ```json
 "dscp_to_priority": [
   {"dscp": ["10"], "priority": 0},
@@ -491,6 +519,7 @@ The AINIC Device Configuration Manager performs comprehensive validation on port
 ```
 
 **Common Validation Errors:**
+
 ```bash
 ❌ "DSCP value 64 out of range (must be 0-63)"
 ❌ "DSCP value 10 is mapped to multiple priorities (0 and 1)"
@@ -501,10 +530,12 @@ The AINIC Device Configuration Manager performs comprehensive validation on port
 ### PFC (Priority Flow Control) Validation
 
 **Priority Range Check:**
+
 - Validates that PFC priority is within the valid range (0-7)
 - Ensures hardware can support the specified priority level
 
 **Example Valid Configuration:**
+
 ```json
 "pfc": {
   "priority": 0,
@@ -513,6 +544,7 @@ The AINIC Device Configuration Manager performs comprehensive validation on port
 ```
 
 **Common Validation Errors:**
+
 ```bash
 ❌ "PFC priority 8 out of range (must be 0-7)"
 ❌ "PFC priority -1 out of range (must be 0-7)"
@@ -521,15 +553,18 @@ The AINIC Device Configuration Manager performs comprehensive validation on port
 ### Scheduling Configuration Validation
 
 **Array Length Consistency:**
+
 - Validates that priority, rate_limit, and dwrr arrays have equal lengths
 - Ensures proper pairing of scheduling parameters
 - Prevents configuration mismatches that could cause hardware errors
 
 **Priority Range Validation:**
+
 - Validates that all priority values in scheduling array are within range (0-7)
 - Ensures all scheduling priorities are hardware-supported
 
 **Example Valid Configuration:**
+
 ```json
 "scheduling": {
   "priority": [0, 1, 6],
@@ -539,6 +574,7 @@ The AINIC Device Configuration Manager performs comprehensive validation on port
 ```
 
 **Common Validation Errors:**
+
 ```bash
 ❌ "Scheduling arrays must have equal length (priority: 3, rate_limit: 2, dwrr: 3)"
 ❌ "Scheduling priority 8 at index 2 out of range (must be 0-7)"
@@ -599,36 +635,42 @@ The AINIC Device Configuration Manager uses Kubernetes node labels and events to
 DCM manages three critical node labels that provide real-time status information about AINIC configuration state:
 
 #### 1. Profile Selection Label
+
 - **Label**: `dcm.amd.com/nic-config-profile`
 - **Purpose**: Selects which AINIC profile to apply on the node
 - **Values**: Any valid node profile name from the ConfigMap (e.g., "nodeprof1", "nodeprof2")
 - **Usage**: Set this label to trigger AINIC configuration
-- **Example**: 
+- **Example**:
+
   ```bash
   kubectl label node worker-1 dcm.amd.com/nic-config-profile=nodeprof1
   ```
 
 #### 2. Configuration State Label
+
 - **Label**: `dcm.amd.com/nic-config-profile-state`
 - **Purpose**: Indicates the current state of AINIC configuration operations
-- **Values**: 
+- **Values**:
   - `"success"`: AINIC configuration completed successfully
   - `"failure"`: AINIC configuration failed for any reason
 - **Lifecycle**: Set automatically by DCM after configuration attempts
 - **Example**:
+
   ```bash
   # Query current state
   kubectl get node worker-1 -o jsonpath='{.metadata.labels.dcm\.amd\.com/nic-config-profile-state}'
   ```
 
 #### 3. Reboot Required Label
+
 - **Label**: `dcm.amd.com/reboot-needed`
 - **Purpose**: Indicates when a cold reboot is required for card profile changes
-- **Values**: 
+- **Values**:
   - `"true"`: Cold reboot required for card profile activation
   - *Label deleted*: No reboot needed (successful verification)
 - **Automation**: Can be monitored by external systems to trigger automated reboot workflows
 - **Example**:
+
   ```bash
   # Check if reboot is needed
   kubectl get node worker-1 -o jsonpath='{.metadata.labels.dcm\.amd\.com/reboot-needed}'
@@ -819,8 +861,6 @@ for i in {1..8}; do
 done
 ```
 
-
-
 #### Step 1: Update Card Profile
 
 ```bash
@@ -828,6 +868,7 @@ nicctl update card profile -p pf1_vf1 --card 42424650-4c32-3530-3330-30343900000
 ```
 
 **Expected Output:**
+
 ```
 Applying card profile for cards in profile nicprof2
 Card 42424650-4c32-3530-3330-303439000000 current profile: pf_default
@@ -836,6 +877,7 @@ Profile update successful - reboot required for activation
 ```
 
 #### Step 2: Manual Cold Reboot
+
 > [!CRITICAL]
 > **MANUAL INTERVENTION REQUIRED** - The system cannot perform this step automatically.
 
@@ -847,6 +889,7 @@ ls /sys/bus/pci/devices/0000:41:00.0/virtfn*  # Verify VF creation
 ```
 
 **Expected Output:**
+
 ```
 Applying VF for cards in profile nicprof2
 Card 42424650-4c32-3530-3330-303439000000 BDF: 0000:41:00.0
@@ -861,6 +904,7 @@ nicctl update card config-preference --provider --card 42424650-4c32-3530-3330-3
 ```
 
 **Expected Output:**
+
 ```
 Applying card config preference for cards in profile nicprof2
 Card 42424650-4c32-3530-3330-303439000000 mode: provider
@@ -879,6 +923,7 @@ nicctl update qos scheduling --priority 0,1,6 --rate-limit 0,0,10 --dwrr 99,1,0
 ```
 
 **Expected Output:**
+
 ```
 Applying port profile 'pp2':
 NIC 42424650-4c32-3530-3330-303439000000 (0000:41:00.0) : Successful
@@ -894,6 +939,7 @@ Scheduling configuration successful
 #### Step 6: Apply DCQCN Profiles
 
 **Provider Mode (1 profile):**
+
 ```bash
 nicctl update dcqcn --roce-device rocep68s0 --profile-id 1 \
   --token-bucket-size 800000 --rate-increase-byte-count 431068 \
@@ -905,6 +951,7 @@ nicctl update dcqcn --roce-device rocep68s0 --profile-id 1 \
 ```
 
 **Expected Output:**
+
 ```
 Applying DCQCN configurations for NIC profile 'nicprof2':
 ========================= rocep68s0 ===================
@@ -914,6 +961,7 @@ DCQCN profile 'p1' applied successfully
 ```
 
 **Workload Mode (8 profiles):**
+
 ```bash
 for i in {1..8}; do
   nicctl update dcqcn --roce-device rocep132s0 --profile-id $i \
@@ -927,6 +975,7 @@ done
 ```
 
 **Expected Output:**
+
 ```
 Applying DCQCN configurations for NIC profile 'nicprof5':
 ========================= rocep132s0 ===================
@@ -948,16 +997,19 @@ nicctl show card profile --json | jq .
 ### Profile Validation
 
 **Card Coverage:**
+
 - Each NIC profile claims specific cards using `match_filters`
 - All cards in the system should be claimed by exactly one NIC profile
 - Overlapping filters cause validation errors
 
 **DCQCN Coverage:**
+
 - All RoCE devices for claimed cards must have DCQCN profiles
 - Provider mode: 1 profile per RoCE device
 - Workload mode: 8 profiles per RoCE device
 
 **Common Validation Errors:**
+
 ```bash
 # Check for unclaimed cards
 ❌ "Card X not claimed by any NIC profile"
@@ -971,11 +1023,10 @@ nicctl show card profile --json | jq .
 # Check profile count
 ❌ "Expected 8 profiles for workload mode, found 2"
 ```
+
 ### Deployment Modes
 
-```
 The AINIC Device Configuration Manager supports two distinct deployment modes, each with different profile selection mechanisms:
-```
 
 #### Step 3: Card Configuration Preference
 
@@ -1011,6 +1062,7 @@ nicctl update qos scheduling --priority 0,1,6 --rate-limit 0,0,10 --dwrr 99,1,0
 ```
 
 **Example execution log:**
+
 ```
 Applying port profile 'pp2':
 Executing: nicctl update port --all --mtu 9064
@@ -1047,6 +1099,7 @@ nicctl update dcqcn --roce-device rocep65s0 --profile-id 1 \
 ```
 
 **Example execution log:**
+
 ```
 Applying DCQCN configurations for NIC profile 'nicprof2':
 DCQCN Entry #0
@@ -1120,6 +1173,7 @@ The AINIC Device Configuration Manager supports multiple deployment modes, each 
 The recommended way to deploy DCM with AINIC support in Kubernetes clusters using Helm charts.
 
 **Quick Start:**
+
 ```bash
 # Basic installation with default AINIC ConfigMap
 helm install dcm ./helm-charts \
@@ -1141,6 +1195,7 @@ helm install dcm ./helm-charts \
 **Deployment Scenarios:**
 
 #### AINIC-Only Deployment
+
 ```bash
 # Deploy DCM for AINIC only (no GPU config)
 helm install dcm ./helm-charts \
@@ -1150,6 +1205,7 @@ helm install dcm ./helm-charts \
 ```
 
 #### GPU + AINIC Combined Deployment
+
 ```bash
 # Deploy DCM for both GPU and AINIC
 helm install dcm ./helm-charts \
@@ -1159,6 +1215,7 @@ helm install dcm ./helm-charts \
 ```
 
 #### Custom Configuration
+
 ```bash
 # Use custom image and node selector
 helm install dcm ./helm-charts \
@@ -1170,6 +1227,7 @@ helm install dcm ./helm-charts \
 ```
 
 **Upgrade Existing Deployment:**
+
 ```bash
 # Upgrade DCM with new AINIC ConfigMap
 helm upgrade dcm ./helm-charts \
@@ -1178,6 +1236,7 @@ helm upgrade dcm ./helm-charts \
 ```
 
 **Verify Deployment:**
+
 ```bash
 # Check Helm release
 helm list -n kube-system
@@ -1195,6 +1254,7 @@ kubectl get configmap ainic-config -n kube-system -o yaml
 **Customize AINIC Configuration:**
 
 Edit the default AINIC ConfigMap after deployment:
+
 ```bash
 # Edit ConfigMap directly
 kubectl edit configmap ainic-config -n kube-system
@@ -1207,6 +1267,7 @@ kubectl create configmap ainic-config \
 ```
 
 **Uninstall:**
+
 ```bash
 # Remove DCM deployment
 helm uninstall dcm --namespace kube-system
@@ -1228,6 +1289,7 @@ The Helm chart provides flexible ConfigMap management through the `createAinicCo
 **Use Cases:**
 
 1. **Production Deployment** (Default behavior):
+
    ```bash
    # Helm creates ConfigMap from template
    helm install dcm ./helm-charts \
@@ -1236,6 +1298,7 @@ The Helm chart provides flexible ConfigMap management through the `createAinicCo
    ```
 
 2. **E2E Testing / Pre-existing ConfigMap**:
+
    ```bash
    # Manually create ConfigMap first
    kubectl create configmap ainic-config \
@@ -1249,6 +1312,7 @@ The Helm chart provides flexible ConfigMap management through the `createAinicCo
    ```
 
 3. **External ConfigMap Management** (GitOps):
+
    ```bash
    # ConfigMap managed by ArgoCD/Flux
    helm install dcm ./helm-charts \
@@ -1259,6 +1323,7 @@ The Helm chart provides flexible ConfigMap management through the `createAinicCo
 **Disabling ConfigMaps:**
 
 To disable GPU or AINIC ConfigMaps entirely:
+
 ```bash
 # AINIC only - disable GPU ConfigMap
 helm install dcm ./helm-charts \
@@ -1279,11 +1344,13 @@ helm install dcm ./helm-charts \
 In Debian mode, DCM runs directly on the host system without Kubernetes orchestration.
 
 **Profile Selection:**
+
 - Uses the `selectedProfile` field in `config.json`
 - No node labels or Kubernetes concepts involved
 - File watcher monitors `config.json` for changes
 
 **Configuration:**
+
 ```json
 {
   "selectedProfile": "nodeprof1",
@@ -1292,6 +1359,7 @@ In Debian mode, DCM runs directly on the host system without Kubernetes orchestr
 ```
 
 **Operation:**
+
 ```bash
 # Update configuration file
 echo '{"selectedProfile": "nodeprof2"}' > config.json
@@ -1307,6 +1375,7 @@ echo '{"selectedProfile": "nodeprof2"}' > config.json
 In Kubernetes mode, DCM runs as a DaemonSet and integrates with Kubernetes native features.
 
 **Profile Selection:**
+
 - Uses the `dcm.amd.com/nic-config-profile` node label
 - ConfigMap contains the profile definitions
 - Both file watcher (ConfigMap) and node label watcher are active
@@ -1321,6 +1390,7 @@ In Kubernetes mode, DCM runs as a DaemonSet and integrates with Kubernetes nativ
 > **No Default Behavior**: If the `dcm.amd.com/nic-config-profile` label is not present, DCM will not perform any configuration to avoid unintentional cluster disruption.
 
 **Configuration Management:**
+
 ```bash
 # Apply node label to trigger configuration
 kubectl label node worker-node-1 dcm.amd.com/nic-config-profile=nodeprof1
@@ -1339,6 +1409,7 @@ kubectl patch configmap ainic-config --patch '{"data":{"ainic.json":"..."}}'
 3. **Controlled Rollout**: Create new profiles in ConfigMap and migrate nodes one by one to avoid cluster-wide impact
 
 **Best Practices for Kubernetes Mode:**
+
 ```bash
 # 1. Taint node before NIC configuration changes
 kubectl taint node worker-node-1 dcm.amd.com/nic-config=updating:NoSchedule
@@ -1358,11 +1429,13 @@ kubectl label node worker-node-1 dcm.amd.com/nic-config-profile=nodeprof1-v2
 ## Integration Points
 
 ### Network Tools
+
 - **nicctl**: Primary tool for device configuration
 - **Linux networking**: Integration with system network stack
 - **SR-IOV**: Virtual function management
 
 ### Orchestration
+
 - **Kubernetes**: Native integration with node labels and config maps
 - **Config Management**: Support for GitOps and configuration as code
 - **Monitoring**: Integration with observability platforms
@@ -1387,21 +1460,25 @@ kubectl label node worker-node-1 dcm.amd.com/nic-config-profile=nodeprof1-v2
 ### Common Issues
 
 #### Device Discovery Issues
+
 - **Problem**: `nicctl` commands fail or devices not visible
 - **Solution**: Verify `nicctl` installation, driver status, and device accessibility
 - **Debug**: Check `dmesg` for hardware errors and driver loading status
 
 #### Profile Validation Failures
+
 - **Problem**: Overlapping device filters in NIC profiles
 - **Solution**: Review and update match filters to ensure unique device assignment
 - **Debug**: Use validation logs to identify conflicting profile claims
 
 #### DCQCN Coverage Issues
+
 - **Problem**: RoCE devices not covered by DCQCN filters
 - **Solution**: Add matching DCQCN entries or update `dev_id` filters to include all devices
 - **Debug**: Compare discovered RoCE device names with DCQCN filter specifications
 
 #### Permission Errors
+
 - **Problem**: Configuration commands fail with permission denied
 - **Solution**: Verify system has appropriate privileges for device configuration
 - **Debug**: Check user permissions, SELinux policies, and device file ownership
@@ -1422,6 +1499,7 @@ The Device Config Manager includes comprehensive end-to-end (E2E) tests for vali
 ### E2E Test Suite
 
 The E2E test suite validates AINIC configuration workflows including:
+
 - Pod deployment and readiness
 - ConfigMap integration
 - Node label-based profile selection
@@ -1694,6 +1772,7 @@ make pkg-noble    # Ubuntu 24.04 (noble)
 ```
 
 **What this does:**
+
 - Builds the unified DCM binary capable of handling both GPU and AINIC devices
 - Uses Ubuntu-specific AMD SMI libraries for the target version
 - Generates binary at: `bin/device-config-manager-<ubuntu_version>`
@@ -1701,6 +1780,7 @@ make pkg-noble    # Ubuntu 24.04 (noble)
 - Creates version-specific Debian package
 
 **Build Artifacts:**
+
 ```
 bin/
 ├── device-config-manager-jammy                # Unified DCM binary (Ubuntu 22.04)
@@ -1719,6 +1799,7 @@ make dcm-binary
 ```
 
 **What this does:**
+
 - Compiles unified DCM binary for RHEL9/Kubernetes environments  
 - Capable of handling both GPU and AINIC devices automatically
 - Uses RHEL9 AMD SMI libraries
@@ -1735,6 +1816,7 @@ make dcm-docker
 ```
 
 **Image Details:**
+
 - **Image Name**: `registry.test.pensando.io:5000/device-config-manager:v1`
 - **Base**: RHEL9 minimal image for production deployment  
 - **Dependencies**: Includes all required AMD SMI libraries
@@ -1742,6 +1824,7 @@ make dcm-docker
 - **Capabilities**: Unified container supporting both GPU and AINIC devices
 
 **Build Process:**
+
 1. Compiles unified DCM binary using `make dcm-binary`
 2. Creates Docker image with RHEL9 base
 3. Includes AMD SMI libraries and dependencies
@@ -1830,6 +1913,7 @@ VERSION=v2.0.0 make dcm-docker
 | `pkg-noble` | Ubuntu 24.04 package | `amdgpu-configmanager_24.04_amd64.deb` |
 
 **Legacy targets (maintained for compatibility):**
+
 - `dcm-st` → `dcm-binary ENV=debian`
 - `pkg-ainic` → `pkg` (now unified)
 
@@ -1838,6 +1922,7 @@ VERSION=v2.0.0 make dcm-docker
 #### Common Build Problems
 
 **Go Module Issues:**
+
 ```bash
 # Fix module dependencies
 make mod
@@ -1846,6 +1931,7 @@ go mod vendor
 ```
 
 **Docker Build Failures:**
+
 ```bash
 # Clean build cache
 docker system prune -f
@@ -1855,6 +1941,7 @@ make build-dev-container
 ```
 
 **Missing Dependencies:**
+
 ```bash
 # Install required Go tools
 make gopkglist
@@ -1866,6 +1953,7 @@ make amdsmi-update
 #### Verification
 
 **Verify Binary:**
+
 ```bash
 # Check binary exists and version (for Debian)
 ./bin/device-config-manager-jammy --version
@@ -1878,6 +1966,7 @@ make amdsmi-update
 ```
 
 **Verify Docker Image:**
+
 ```bash
 # Check image exists
 docker images | grep device-config-manager
@@ -1937,21 +2026,24 @@ We welcome contributions from the community! Here's how you can help improve DCM
 ### Getting Started
 
 1. **Fork the Repository**
+
    ```bash
    git clone https://github.com/ROCm/device-config-manager.git
    cd device-config-manager
    ```
 
 2. **Set Up Development Environment**
+
    ```bash
    # Install dependencies
    make gopkglist
-   
+
    # Build from source
    make dcm-binary ENV=debian
    ```
 
 3. **Run Tests**
+
    ```bash
    make lint    # Code style checks
    make vet     # Static analysis
@@ -1961,7 +2053,7 @@ We welcome contributions from the community! Here's how you can help improve DCM
    cd test/k8s-e2e
    make test-ainic TOP_DIR=../..
    ```
-   
+
    See the [Testing](#testing) section for comprehensive E2E test documentation.
 
 ### Contribution Guidelines

@@ -9,7 +9,7 @@
 Device Config Manager (DCM) is a unified component that handles both AMD GPU and AINIC (AI NIC) device configurations. Originally designed for GPU partitioning in the GPU Operator, DCM has evolved into a comprehensive device configuration solution that supports:
 
 - **GPU Configuration**: GPU partitioning and hardware management
-- **AINIC Configuration**: AI network card profile and performance management  
+- **AINIC Configuration**: AI network card profile and performance management
 - **Unified Architecture**: Single binary and container supporting both device types
 - **Flexible Deployment**: Kubernetes and standalone/Debian deployment modes
 
@@ -22,30 +22,35 @@ Device Config Manager (DCM) is a unified component that handles both AMD GPU and
 - **Profile-Based**: Uses ConfigMaps (K8s) or JSON files (Debian) for configuration
 
 ## Supported Platforms
+
 - Ubuntu 22.04, 24.04
 - RHEL 9 (Kubernetes/OpenShift)
 
 ## Device Support
+
 - **GPU**: AMD GPUs with ROCM 6.3, 6.4, 7.0, 7.2
 - **AINIC**: AMD AI network cards with SR-IOV and RoCE capabilities
 
 ## Quick Start
 
 ### Build Unified Binary
+
 ```bash
 # For Kubernetes deployment
 make dcm-binary
 
-# For Debian/standalone deployment  
+# For Debian/standalone deployment
 make dcm-binary ENV=debian
 ```
 
 ### Build Docker Image
+
 ```bash
 make dcm-docker
 ```
 
 ### Available Targets
+
 - `dcm-binary` - Build unified DCM binary (ENV: k8s|debian)
 - `dcm-docker` - Build Docker image with unified binary
 - `pkg` - Create Debian package
@@ -70,6 +75,7 @@ DCM uses a unified architecture where a single binary automatically:
 ## Configuration
 
 DCM supports two configuration sources:
+
 - **Kubernetes**: ConfigMaps with node-based profile selection via labels
 - **Debian**: Direct JSON configuration files
 
