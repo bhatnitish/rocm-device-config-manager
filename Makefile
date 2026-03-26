@@ -106,8 +106,8 @@ DOCS_MD_GLOB ?= "**/*.md"
 DOCS_SPELLCHECK_CONFIG ?= .spellcheck.yaml
 
 # library branch to build amdsmi libraries
-AMDSMI_BRANCH ?= rocm-7.2.0
-AMDSMI_COMMIT ?= 91c1f541d74ed5d9fe8094a2a22922e5fa021c62
+AMDSMI_BRANCH ?= rocm-7.2.1
+AMDSMI_COMMIT ?= 1e91f3c1527617066f50c22f9ec4368fe82e1a3c
 PROJECT_VERSION ?= "1.4.0"
 
 EXCLUDE_PATTERN := "libamdsmi"
@@ -327,7 +327,8 @@ test-ainic:
 
 .PHONY: update-submodules
 update-submodules:
-	git submodule update --remote --recursive
+	git submodule sync --recursive
+	git submodule update --init --remote --recursive
 
 .PHONY: build-amdsmi-all
 build-amdsmi-all:
