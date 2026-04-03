@@ -1,19 +1,9 @@
-from "registry.test.pensando.io:5000/device-config-manager-build:v1.1"
+from "registry.test.pensando.io:5000/device-config-manager-build:v1.2"
 
 user = getenv("USER")
 group = getenv("GROUP_NAME")
 uid = getenv("USER_UID")
 gid = getenv("USER_GID")
-
-# remove old version of go
-run "rm -rf /usr/local/go"
-
-# download go1.23
-run "wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz && tar -C /usr/local/ -xzf go1.23.4.linux-amd64.tar.gz && rm go1.23.4.linux-amd64.tar.gz"
-# download and install kubectl 
-run "curl -LO https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl"
-run "chmod +x kubectl"
-run "sudo mv kubectl /usr/local/bin"
 
 run "curl -o /usr/bin/asset-pull http://pm.test.pensando.io/tools/asset-pull"
 run "chmod +x /usr/bin/asset-pull"
@@ -21,10 +11,6 @@ run "curl -o /usr/bin/asset-push http://pm.test.pensando.io/tools/asset-push"
 run "chmod +x /usr/bin/asset-push"
 copy "asset-build/configmanager-asset-push.sh", "/configmanager-asset-push.sh"
 run "chmod +x /configmanager-asset-push.sh"
-
-# install yq
-run "wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
-run "chmod a+x /usr/local/bin/yq"
 
 if user == "root"
   # update user .bash_profile
