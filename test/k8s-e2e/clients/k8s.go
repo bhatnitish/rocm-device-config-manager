@@ -91,6 +91,20 @@ func (k *K8sClient) GetPodsByLabel(ctx context.Context, namespace string, labelM
 	return podList.Items, nil
 }
 
+// DeletePodsByLabel deletes all pods matching labelMap in namespace.
+func (k *K8sClient) DeletePodsByLabel(ctx context.Context, namespace string, labelMap map[string]string) error {
+	pods, err := k.GetPodsByLabel(ctx, namespace, labelMap)
+	if err != nil {
+		return err
+	}
+	for i := range pods {
+		if err := k.client.CoreV1().Pods(namespace).Delete(ctx, pods[i].Name, metav1.DeleteOptions{}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (k *K8sClient) GetNodesByLabel(ctx context.Context, labelMap map[string]string) ([]corev1.Node, error) {
 	nodeList, err := k.client.CoreV1().Nodes().List(ctx, metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labelMap).String(),
@@ -99,6 +113,11 @@ func (k *K8sClient) GetNodesByLabel(ctx context.Context, labelMap map[string]str
 		return nil, err
 	}
 	return nodeList.Items, nil
+}
+
+// GetConfigMap fetches a ConfigMap by namespace and name.
+func (k *K8sClient) GetConfigMap(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
+	return k.client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
 func (k *K8sClient) GetServiceByLabel(ctx context.Context, namespace string, labelMap map[string]string) ([]corev1.Service, error) {
@@ -136,7 +155,7 @@ func (k *K8sClient) ValidatePod(ctx context.Context, namespace, podName string) 
 	return nil
 }
 
-func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name string) error {
+func gpuConfigProfilesE2EPayload() GPUConfigProfiles {
 	skippedGPUs := &SkippedGPUs{
 		Id: []uint32{},
 	}
@@ -239,7 +258,7 @@ func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name 
 		},
 	}
 
-	profileslist := GPUConfigProfiles{
+	return GPUConfigProfiles{
 		ProfilesList: map[string]*GPUConfigProfile{
 			"default": {
 				Filters:  skippedGPUs,
@@ -282,8 +301,30 @@ func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name 
 			},
 		},
 	}
+}
 
-	cfgData, _ := json.Marshal(profileslist)
+// GPUConfigMapE2ETestJSON is the config.json body for GPU partition E2E profiles (overrides chart defaults after install).
+func GPUConfigMapE2ETestJSON() string {
+	b, _ := json.Marshal(gpuConfigProfilesE2EPayload())
+	return string(b)
+}
+
+// ReplaceGPUConfigMapConfigJSON updates an existing ConfigMap's config.json (e.g. chart-created CM with E2E profile set).
+func (k *K8sClient) ReplaceGPUConfigMapConfigJSON(ctx context.Context, namespace, name string) error {
+	cm, err := k.client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if cm.Data == nil {
+		cm.Data = make(map[string]string)
+	}
+	cm.Data["config.json"] = GPUConfigMapE2ETestJSON()
+	_, err = k.client.CoreV1().ConfigMaps(namespace).Update(ctx, cm, metav1.UpdateOptions{})
+	return err
+}
+
+func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name string) error {
+	cfgData := GPUConfigMapE2ETestJSON()
 
 	mcfgMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -291,7 +332,7 @@ func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name 
 			Namespace: namespace,
 		},
 		Data: map[string]string{
-			"config.json": string(cfgData),
+			"config.json": cfgData,
 		},
 	}
 
@@ -312,7 +353,7 @@ func (k *K8sClient) CreateAINICConfigMap(ctx context.Context, namespace string, 
 				"app.kubernetes.io/managed-by": "Helm",
 			},
 			Annotations: map[string]string{
-				"meta.helm.sh/release-name":      "e2e-test-k8s",
+				"meta.helm.sh/release-name":      HelmReleaseNameForNamespace(namespace),
 				"meta.helm.sh/release-namespace": namespace,
 			},
 		},

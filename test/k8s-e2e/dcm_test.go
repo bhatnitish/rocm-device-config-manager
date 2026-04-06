@@ -15,7 +15,76 @@ var (
 	dcmPod        *corev1.Pod
 	configmapName = "test-e2e-config"
 	nodePort      = 80
+	dcmPodLabels  = map[string]string{"app": "amdgpu-device-config-manager"}
 )
+
+// helmValuesDCM builds helm --set lines. Use configMap= (empty value) so upgrades clear a previously set custom name.
+func (s *E2ESuite) helmValuesDCM(gpuConfigMap string) []string {
+	return []string{
+		fmt.Sprintf("image.repository=%v", s.registry),
+		fmt.Sprintf("image.tag=%v", s.imageTag),
+		fmt.Sprintf("service.NodePort.nodePort=%d", nodePort),
+		"service.type=NodePort",
+		fmt.Sprintf("configMap=%s", gpuConfigMap),
+		"image.pullPolicy=IfNotPresent",
+		"ainicHostMounts=false",
+		"ainicConfigMap=",
+		"createAinicConfigMap=false",
+		"simEnabled=true",
+	}
+}
+
+func (s *E2ESuite) findRunningDCMPod(ctx context.Context) *corev1.Pod {
+	pods, err := s.k8sclient.GetPodsByLabel(ctx, s.ns, dcmPodLabels)
+	if err != nil {
+		return nil
+	}
+	for i := range pods {
+		if pods[i].Status.Phase == corev1.PodRunning {
+			return &pods[i]
+		}
+	}
+	return nil
+}
+
+// ensureDCMPodUp installs or upgrades the chart when needed. skipIfRunning: if true and a DCM pod is already Running, skip helm.
+func (s *E2ESuite) ensureDCMPodUp(c *C, gpuConfigMap string, skipIfRunning bool) {
+	ctx := context.Background()
+	if skipIfRunning {
+		if p := s.findRunningDCMPod(ctx); p != nil {
+			dcmPod = p
+			log.Print("DCM pod already Running; skipping helm install")
+			assert.Eventually(c, func() bool {
+				return s.k8sclient.ValidatePod(ctx, s.ns, dcmPod.Name) == nil
+			}, 10*time.Second, 1*time.Second)
+			return
+		}
+	}
+	rel, err := s.helmClient.InstallOrUpgradeChart(ctx, s.helmChart, s.helmValuesDCM(gpuConfigMap))
+	if err != nil {
+		log.Printf("failed to install or upgrade charts")
+		assert.Fail(c, err.Error())
+		return
+	}
+	log.Printf("helm installed configmanager relName :%v err:%v", rel, err)
+	log.Printf("sleep for 20s for pod to be ready")
+	time.Sleep(20 * time.Second)
+	assert.Eventually(c, func() bool {
+		p := s.findRunningDCMPod(ctx)
+		if p == nil {
+			return false
+		}
+		dcmPod = p
+		return true
+	}, 2*time.Minute, 10*time.Second)
+	if dcmPod == nil {
+		assert.Fail(c, "DCM pod did not reach Running phase")
+		return
+	}
+	assert.Eventually(c, func() bool {
+		return s.k8sclient.ValidatePod(ctx, s.ns, dcmPod.Name) == nil
+	}, 10*time.Second, 1*time.Second)
+}
 
 const GpuConfigProfileStateLabel = "dcm.amd.com/gpu-config-profile-state"
 const GpuConfigProfileLabel = "dcm.amd.com/gpu-config-profile"
@@ -63,7 +132,19 @@ func (s *E2ESuite) getWorkerNode(c *C, ctx context.Context) string {
 	return worker_node
 }
 
-func validateNodeLabels(c *C, labels map[string]string, negativeTC bool) {
+func skipTest(c *C, reason string) {
+	c.Skip(reason)
+}
+
+// skipDCMTestIfSIMRequiresGPU skips tests that need a real AMD GPU (partitioning, workload, successful partition state).
+// Omit for K8s-only checks (DaemonSet, ConfigMap) and for negative profile cases that do not require hardware.
+func (s *E2ESuite) skipDCMTestIfSIMRequiresGPU(c *C) {
+	if s.simEnable {
+		skipTest(c, "skip DCM test in SIM mode (no GPU)")
+	}
+}
+
+func (s *E2ESuite) validateNodeLabels(c *C, labels map[string]string, negativeTC bool) {
 	if len(labels) != 0 {
 		gpuConfigProfileState := labels[GpuConfigProfileStateLabel]
 		gpuConfigProfile := labels[GpuConfigProfileLabel]
@@ -87,78 +168,23 @@ func validateNodeLabels(c *C, labels map[string]string, negativeTC bool) {
 	}
 }
 
-func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
+func (s *E2ESuite) Test001DCMFirstDeplymentDefaults(c *C) {
 	ctx := context.Background()
 	worker_node := s.getWorkerNode(c, ctx)
-	// remove existing label for profile selection if any
 	err := s.k8sclient.DeleteNodeLabel(ctx, worker_node, "dcm.amd.com/gpu-config-profile")
 	if err != nil {
 		log.Printf("Error removing node labels: %s\n", err.Error())
 		return
 	}
 	log.Print("Testing helm install for exporter")
-	fmt.Printf("image.repository=%v\n", s.registry)
-	fmt.Printf("image.tag=%v\n", s.imageTag)
-	fmt.Printf("configMap=%v\n", configmapName)
-	fmt.Printf("platform=%v\n", s.platform)
-	fmt.Printf("service.NodePort.nodePort=%d\n", nodePort)
-	fmt.Printf("configMap=%v\n", configmapName)
-	values := []string{
-		fmt.Sprintf("image.repository=%v", s.registry),
-		fmt.Sprintf("image.tag=%v", s.imageTag),
-		fmt.Sprintf("service.NodePort.nodePort=%d", nodePort),
-		fmt.Sprintf("service.type=NodePort"),
-		fmt.Sprintf("configMap=%v", configmapName),
-		"image.pullPolicy=IfNotPresent",
-		"createGpuConfigMap=false", // E2E creates ConfigMap manually
-	}
-
-	err = s.k8sclient.CreateConfigMap(ctx, s.ns, configmapName)
-	if err != nil {
-		log.Printf("Failed to create config map %v", configmapName)
-	}
-	rel, err := s.helmClient.InstallChart(ctx, s.helmChart, values)
-	if err != nil {
-		log.Printf("failed to install charts")
-		assert.Fail(c, err.Error())
-		return
-	}
-	log.Printf("helm installed configmanager relName :%v err:%v", rel, err)
-	log.Printf("sleep for 20s for pod to be ready")
-	time.Sleep(20 * time.Second)
-	labelMap := map[string]string{"app": "amdgpu-device-config-manager"}
-	assert.Eventually(c, func() bool {
-		pods, err := s.k8sclient.GetPodsByLabel(ctx, s.ns, labelMap)
-		if err != nil {
-			log.Printf("label get pod err %v", err)
-			return false
-		}
-		log.Printf("pods : %+v", pods)
-		if len(pods) >= 1 {
-			for _, pod := range pods {
-				if pod.Status.Phase == "Running" {
-					dcmPod = &pod
-					break
-				}
-			}
-			return true
-		}
-		return false
-	}, 2*time.Minute, 10*time.Second)
-	assert.Eventually(c, func() bool {
-		err := s.k8sclient.ValidatePod(ctx, s.ns, dcmPod.Name)
-		if err != nil {
-			log.Printf("label get pod err %v", err)
-			return false
-		}
-		return true
-	}, 10*time.Second, 1*time.Second)
-
+	s.ensureDCMPodUp(c, configmapName, true)
 	log.Print("Successfully deployed DCM Pod")
 }
 
 func (s *E2ESuite) Test002DCMDefaultPartitioning(c *C) {
+	s.skipDCMTestIfSIMRequiresGPU(c)
 	ctx := context.Background()
+	s.ensureDCMPodUp(c, configmapName, true)
 
 	worker_node := s.getWorkerNode(c, ctx)
 	log.Printf("Adding node label to select profile: default\n")
@@ -169,11 +195,13 @@ func (s *E2ESuite) Test002DCMDefaultPartitioning(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	validateNodeLabels(c, labels, false)
+	s.validateNodeLabels(c, labels, false)
 }
 
 func (s *E2ESuite) Test003DCMHeterogenousPartitioning(c *C) {
+	s.skipDCMTestIfSIMRequiresGPU(c)
 	ctx := context.Background()
+	s.ensureDCMPodUp(c, configmapName, true)
 
 	worker_node := s.getWorkerNode(c, ctx)
 	log.Printf("Adding node label to select profile: e2e_profile1\n")
@@ -184,11 +212,12 @@ func (s *E2ESuite) Test003DCMHeterogenousPartitioning(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	validateNodeLabels(c, labels, false)
+	s.validateNodeLabels(c, labels, false)
 }
 
 func (s *E2ESuite) Test004DCMInvalidProfiles(c *C) {
 	ctx := context.Background()
+	s.ensureDCMPodUp(c, configmapName, true)
 
 	labelMap := make(map[string]string)
 	labelMap["feature.node.kubernetes.io/amd-gpu"] = "true"
@@ -202,11 +231,12 @@ func (s *E2ESuite) Test004DCMInvalidProfiles(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	validateNodeLabels(c, labels, true)
+	s.validateNodeLabels(c, labels, true)
 }
 
 func (s *E2ESuite) Test005DCMInvalidComputeType(c *C) {
 	ctx := context.Background()
+	s.ensureDCMPodUp(c, configmapName, true)
 
 	labelMap := make(map[string]string)
 	labelMap["feature.node.kubernetes.io/amd-gpu"] = "true"
@@ -220,11 +250,12 @@ func (s *E2ESuite) Test005DCMInvalidComputeType(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	validateNodeLabels(c, labels, true)
+	s.validateNodeLabels(c, labels, true)
 }
 
 func (s *E2ESuite) Test006DCMInvalidMemoryType(c *C) {
 	ctx := context.Background()
+	s.ensureDCMPodUp(c, configmapName, true)
 
 	labelMap := make(map[string]string)
 	labelMap["feature.node.kubernetes.io/amd-gpu"] = "true"
@@ -238,11 +269,12 @@ func (s *E2ESuite) Test006DCMInvalidMemoryType(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	validateNodeLabels(c, labels, true)
+	s.validateNodeLabels(c, labels, true)
 }
 
 func (s *E2ESuite) Test007DCMInvalidGPUCount(c *C) {
 	ctx := context.Background()
+	s.ensureDCMPodUp(c, configmapName, true)
 
 	labelMap := make(map[string]string)
 	labelMap["feature.node.kubernetes.io/amd-gpu"] = "true"
@@ -256,11 +288,12 @@ func (s *E2ESuite) Test007DCMInvalidGPUCount(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	validateNodeLabels(c, labels, true)
+	s.validateNodeLabels(c, labels, true)
 }
 
 func (s *E2ESuite) Test008DCMInvalidMemoryCombination(c *C) {
 	ctx := context.Background()
+	s.ensureDCMPodUp(c, configmapName, true)
 
 	labelMap := make(map[string]string)
 	labelMap["feature.node.kubernetes.io/amd-gpu"] = "true"
@@ -274,11 +307,13 @@ func (s *E2ESuite) Test008DCMInvalidMemoryCombination(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	validateNodeLabels(c, labels, true)
+	s.validateNodeLabels(c, labels, true)
 }
 
 func (s *E2ESuite) Test009DCMNPS4Partitioning(c *C) {
+	s.skipDCMTestIfSIMRequiresGPU(c)
 	ctx := context.Background()
+	s.ensureDCMPodUp(c, configmapName, true)
 
 	worker_node := s.getWorkerNode(c, ctx)
 	log.Printf("Adding node label to select profile: nps4\n")
@@ -289,11 +324,13 @@ func (s *E2ESuite) Test009DCMNPS4Partitioning(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	validateNodeLabels(c, labels, false)
+	s.validateNodeLabels(c, labels, false)
 }
 
 func (s *E2ESuite) Test010DCMNPS2Partitioning(c *C) {
+	s.skipDCMTestIfSIMRequiresGPU(c)
 	ctx := context.Background()
+	s.ensureDCMPodUp(c, configmapName, true)
 
 	worker_node := s.getWorkerNode(c, ctx)
 	log.Printf("Adding node label to select profile: nps2\n")
@@ -304,11 +341,13 @@ func (s *E2ESuite) Test010DCMNPS2Partitioning(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	validateNodeLabels(c, labels, false)
+	s.validateNodeLabels(c, labels, false)
 }
 
 func (s *E2ESuite) Test011DCMOptionalSkippedGPUs(c *C) {
+	s.skipDCMTestIfSIMRequiresGPU(c)
 	ctx := context.Background()
+	s.ensureDCMPodUp(c, configmapName, true)
 
 	worker_node := s.getWorkerNode(c, ctx)
 	log.Printf("Adding node label to select profile: optional_filter (testing optional skipped GPUs)\n")
@@ -319,5 +358,29 @@ func (s *E2ESuite) Test011DCMOptionalSkippedGPUs(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	validateNodeLabels(c, labels, false)
+	s.validateNodeLabels(c, labels, false)
+}
+
+// Test012DCMDefaultGPUConfigMapWhenUnset verifies chart creates default-dcm-config when configMap is unset (configMap=).
+// Deletes DCM pods afterward so a later test run can reinstall with the custom CM name.
+func (s *E2ESuite) Test012DCMDefaultGPUConfigMapWhenUnset(c *C) {
+	ctx := context.Background()
+	worker_node := s.getWorkerNode(c, ctx)
+	err := s.k8sclient.DeleteNodeLabel(ctx, worker_node, "dcm.amd.com/gpu-config-profile")
+	if err != nil {
+		log.Printf("Error removing node labels: %s\n", err.Error())
+		return
+	}
+	log.Print("Testing helm with empty configMap (default-dcm-config)")
+	s.ensureDCMPodUp(c, "", false)
+
+	const wantName = "default-dcm-config"
+	cm, err := s.k8sclient.GetConfigMap(ctx, s.ns, wantName)
+	assert.NoError(c, err)
+	assert.NotEmpty(c, cm.Data, "ConfigMap %s should exist with chart template data", wantName)
+
+	err = s.k8sclient.DeletePodsByLabel(ctx, s.ns, dcmPodLabels)
+	assert.NoError(c, err)
+	dcmPod = nil
+	log.Print("Deleted DCM pods so a follow-up test can use configMap=test-e2e-config again")
 }

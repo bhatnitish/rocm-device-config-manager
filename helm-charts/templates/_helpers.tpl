@@ -60,3 +60,15 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Effective GPU ConfigMap name.
+If configMap is unset or empty, use default-dcm-config.
+*/}}
+{{- define "dcm.gpuConfigMapName" -}}
+{{- if empty .Values.configMap -}}
+default-dcm-config
+{{- else -}}
+{{- .Values.configMap -}}
+{{- end -}}
+{{- end }}

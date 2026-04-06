@@ -1,38 +1,32 @@
 # Device Config Manager
 
-Device config manager(DCM) is a component of the GPU Operator which is used to handle AMD Devices' configuration. To begin with, we will be handling the GPU partitioning configurations, but it will be flexible to support any kind of GPU configurations (or AINIC configurations) in the future. Users will provide the GPU configurations using a K8s config-map. The config-map will be associated with the DCM daemonset.
+Device Config Manager (DCM) is part of the GPU Operator. It applies AMD device configuration from Kubernetes, starting with GPU partitioning and AINIC support. Configuration is supplied via a `ConfigMap` mounted on the DCM DaemonSet.
 
-## Configure device config manager
+## Configure Device Config Manager
 
-To start the Device Config Manager along with the GPU Operator configure fields under the ``` spec/configManager ``` field in deviceconfig Custom Resource(CR)
+Set fields under `spec.configManager` in the DeviceConfig custom resource (CR).
 
 ```yaml
   configManager:
-    # To enable/disable the config manager, enable to partition
     enable: True
 
-    # image for the device-config-manager container
     image: "rocm/device-config-manager:v1.4.0"
 
-    # image pull policy for config manager set to always to pull image of latest version
     imagePullPolicy: Always
 
-    # specify configmap name which stores profile config info
-    config: 
-      name: "config-manager-config"
+    # GPU profile ConfigMap (volume mount). If omitted or name is empty, the GPU
+    # Operator uses "default-dcm-config". Set name to use another ConfigMap.
+    # The operator does not create the object; create it in the namespace.
+    config:
+      name: "default-dcm-config"
 
-    # DCM pod deployed either as a standalone pod or through the GPU operator will have 
-    # a toleration attached to it. User can specify additional tolerations if required
-    # key: amd-dcm , value: up , Operator: Equal, effect: NoExecute 
-
-    # OPTIONAL
-    # toleration field for dcm pod to bypass nodes with specific taints
+    # Default toleration: key amd-dcm, value up, effect NoExecute. Optional extra tolerations:
     configManagerTolerations:
       - key: "key1"
-        operator: "Equal" 
+        operator: "Equal"
         value: "value1"
         effect: "NoExecute"
 
 ```
 
-The **device-config-manager** pod start after updating the **DeviceConfig** CR
+The device-config-manager pod starts after the DeviceConfig CR is updated.

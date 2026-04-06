@@ -297,35 +297,83 @@ func getSupportedMemoryPartitionType(processor_handle C.amdsmi_processor_handle)
 	return supported, nil
 }
 
-func validateProfile(profile *partition_pb.GPUConfigProfile, totalGPUCount int) error {
+// normalizeProfileSkippedGPUs ensures skippedGPUs is optional in JSON: missing skippedGPUs,
+// skippedGPUs without ids, or nil ids behave like an empty skip list.
+func normalizeProfileSkippedGPUs(profile *partition_pb.GPUConfigProfile) {
+	if profile == nil {
+		return
+	}
+	if profile.Filters == nil {
+		profile.Filters = &partition_pb.SkippedGPUs{}
+	}
+	if profile.Filters.Id == nil {
+		profile.Filters.Id = []uint32{}
+	}
+}
+
+// validateProfile checks the profile and returns per-profile GPU counts.
+//
+// Omitted or zero numGPUsAssigned has a single meaning: at most one "remainder" row.
+// remainder = usableGPUs - sum(explicit numGPUsAssigned), where usableGPUs = totalGPUCount - len(skipped).
+// A lone profile row with omission gets remainder=usable (often described as "all GPUs"); multiple rows
+// with explicit counts summing to usable get remainder=0 for the omitted row. More than one omitted row fails.
+func validateProfile(profile *partition_pb.GPUConfigProfile, totalGPUCount int) ([]uint32, error) {
+	normalizeProfileSkippedGPUs(profile)
 	devices_conf_count := len(profile.Profiles)
 	profiles := profile.Profiles
-	total_devices := 0
+	if devices_conf_count == 0 {
+		return nil, errors.New("profile must contain at least one entry in profiles")
+	}
 	devicefilter := profile.Filters
 	if len(devicefilter.Id) > totalGPUCount {
 		log.Printf("Device filter count %d exceeding existing GPU count %d in node", len(devicefilter.Id), totalGPUCount)
 		err := errors.New("GPU ID list specified in the device filter is invalid, list length is exceeding the total number of GPUs available on this node")
 		log.Printf("ERROR %v", err)
-		return err
+		return nil, err
 	}
 
 	for _, id := range devicefilter.Id {
 		if int(id)+1 > totalGPUCount {
 			log.Printf("Invalid GPU ID specified in skippedGPUs list: %v Valid GPU indices : 0 - %v", id, totalGPUCount-1)
 			err := errors.New("invalid gpu id")
-			return err
+			return nil, err
 		}
 	}
 
-	for i := range devices_conf_count {
-		nod := profiles[i].NumGPUsAssigned
-		total_devices = total_devices + int(nod)
+	usable := totalGPUCount - len(devicefilter.Id)
+	effective := make([]uint32, devices_conf_count)
+	var explicitSum int
+	var zeroIdx []int
+	for i := 0; i < devices_conf_count; i++ {
+		v := profiles[i].NumGPUsAssigned
+		if v > 0 {
+			effective[i] = v
+			explicitSum += int(v)
+		} else {
+			zeroIdx = append(zeroIdx, i)
+		}
 	}
-	if total_devices+len(devicefilter.Id) != totalGPUCount {
-		err := errors.New("the total of all numGPUsAssigned values across profiles, combined with the count of IDs in the skippedGPUs list, does not equal the total number of GPUs available on this node")
+
+	if len(zeroIdx) == 0 {
+		if explicitSum != usable {
+			err := errors.New("the total of all numGPUsAssigned values across profiles, combined with the count of IDs in the skippedGPUs list, does not equal the total number of GPUs available on this node")
+			log.Printf("ERROR %v", err)
+			return nil, err
+		}
+	} else if len(zeroIdx) == 1 {
+		remainder := usable - explicitSum
+		if remainder < 0 {
+			err := errors.New("numGPUsAssigned values sum to more than available GPUs after skipped GPUs")
+			log.Printf("ERROR %v", err)
+			return nil, err
+		}
+		effective[zeroIdx[0]] = uint32(remainder)
+	} else {
+		err := errors.New("multiple profile entries omit numGPUsAssigned; specify numGPUsAssigned for all but one profile when using heterogeneous partitioning")
 		log.Printf("ERROR %v", err)
-		return err
+		return nil, err
 	}
+
 	gpu_ids_list := createGPUIDList(devicefilter.Id, totalGPUCount)
 	log.Printf("Usable GPU IDs for partitioning %v", gpu_ids_list)
 	currentMemory := profiles[0].MemoryPartition
@@ -334,19 +382,19 @@ func validateProfile(profile *partition_pb.GPUConfigProfile, totalGPUCount int) 
 		err := checkInvalidPartitionType(currentCompute, profiles[i].MemoryPartition)
 		if err != nil {
 			log.Printf("Invalid partition types %v-%v", currentCompute, currentMemory)
-			return err
+			return nil, err
 		}
 		if currentMemory != profiles[i].MemoryPartition {
 			log.Printf("All profiles must have a common memory type NPS1, NPS2 or NPS4")
 			err := errors.New("profile cannot have combination of NPS1, NPS2 and NPS4 memory types")
-			return err
+			return nil, err
 		}
 
-		nod := profiles[i].NumGPUsAssigned
+		nod := effective[i]
 		log.Printf("Partitioning %v devices with compute partition type %v and memory type %v", nod, currentCompute, currentMemory)
 	}
 	log.Println("Profile validation successful")
-	return nil
+	return effective, nil
 }
 
 func getCurrentGPUComputePartition(processor_handle C.amdsmi_processor_handle) string {
@@ -449,10 +497,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	var gpu_id int
 	var partition_err_reason string
 
-	if profile.Filters == nil {
-		profile.Filters = &partition_pb.SkippedGPUs{}
-		profile.Filters.Id = []uint32{}
-	}
+	normalizeProfileSkippedGPUs(profile)
 
 	log.Print("Total number of GPUs in the node ", totalGPUCount)
 	log.Printf("Skipped GPU IDs for partitioning %v", profile.Filters.Id)
@@ -463,7 +508,7 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 	log.Println("\nValidating the selected profile.")
 	log.Printf("Profile name: %+v\n", selectedProfile)
 	log.Printf("Profile info: %+v\n", profile)
-	err := validateProfile(profile, totalGPUCount)
+	effectiveCounts, err := validateProfile(profile, totalGPUCount)
 	if err != nil {
 		log.Println("Profile validation failed. Could not partition.")
 	}
@@ -486,8 +531,8 @@ func amdSMIHelper(selectedProfile string, profile *partition_pb.GPUConfigProfile
 		currentCompute := profiles[i].ComputePartition
 		currentMemory := profiles[i].MemoryPartition
 		partitionType := currentCompute + "-" + currentMemory
-		nod := profiles[i].NumGPUsAssigned
-		for j := 0; j < int(nod); j++ {
+		nod := int(effectiveCounts[i])
+		for j := 0; j < nod; j++ {
 			log.Printf("\n%v\n\n", gpuidDivider)
 			gpu_id = gpu_ids_list[idx]
 			log.Printf("GPU ID %v\n", gpu_id)

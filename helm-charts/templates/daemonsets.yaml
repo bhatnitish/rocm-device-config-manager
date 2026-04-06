@@ -23,8 +23,7 @@ spec:
       - command:
         - sh
         - -c
-        - while [ ! -d /host-sys/class/kfd ] || [ ! -d /host-sys/module/amdgpu/drivers/
-          ]; do echo "amdgpu driver is not loaded "; sleep 2 ;done
+        - {{ if .Values.simEnabled }}"exit 0"{{ else }}"while [ ! -d /host-sys/class/kfd ] || [ ! -d /host-sys/module/amdgpu/drivers/ ]; do echo 'amdgpu driver is not loaded'; sleep 2; done"{{ end }}
         image: {{ .Values.image.initContainerImage }}
         imagePullPolicy: IfNotPresent
         name: driver-init
@@ -61,10 +60,9 @@ spec:
             name: libmodules
           - mountPath: /var/lib/
             name: health
-          {{- if .Values.configMap }}
+          {{- $gpuCM := include "dcm.gpuConfigMapName" . }}
           - mountPath: /etc/config-manager/
-            name: {{ .Values.configMap }}-volume
-          {{- end }}
+            name: {{ $gpuCM }}-volume
           {{- if .Values.ainicConfigMap }}
           - mountPath: /etc/config-manager-ainic/
             name: {{ .Values.ainicConfigMap }}-volume
@@ -77,12 +75,14 @@ spec:
             name: usr-lib-systemd
           - mountPath: /var/run/dbus
             name: var-run-dbus
+          {{- if .Values.ainicHostMounts }}
           - mountPath: /usr/sbin/nicctl
             name: nicctl
           - mountPath: /opt/amd
             name: opt-amd
           - mountPath: /etc/amd/ainic
-            name: ainicMetaData
+            name: ainic-metadata
+          {{- end }}
 
           workingDir: /root
       tolerations:
@@ -123,6 +123,7 @@ spec:
           path: /var/run/dbus
           type: Directory
         name: var-run-dbus
+      {{- if .Values.ainicHostMounts }}
       - hostPath:
           path: /usr/sbin/nicctl
           type: File
@@ -134,12 +135,12 @@ spec:
       - hostPath:
           path: /etc/amd/ainic
           type: Directory
-        name: ainicMetaData
-      {{- if .Values.configMap }}
-      - name: {{ .Values.configMap }}-volume
-        configMap:
-          name: {{ .Values.configMap }}
+        name: ainic-metadata
       {{- end }}
+      {{- $gpuCM := include "dcm.gpuConfigMapName" . }}
+      - name: {{ $gpuCM }}-volume
+        configMap:
+          name: {{ $gpuCM }}
       {{- if .Values.ainicConfigMap }}
       - name: {{ .Values.ainicConfigMap }}-volume
         configMap:

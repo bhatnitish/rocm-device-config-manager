@@ -1,26 +1,21 @@
 platform: k8s
-
 #optional parameter
 nodeSelector: {}
-
+# image.repository / image.tag are overwritten by `make helm` (yq) from HELM_DCM_IMAGE and DCM_IMAGE_TAG — match the tag you pushed.
 image:
   repository: registry.test.pensando.io:5000/device-config-manager
-  tag: dev
+  tag: latest
   pullPolicy: Always
   initContainerImage: busybox:1.36
-
-# GPU ConfigMap name (optional - required for GPU partitioning)
-# Set to empty string ("") to disable GPU ConfigMap mounting
-configMap: "dcm-st"
-
-# Whether to create the GPU ConfigMap from template
-# Set to false in E2E tests where ConfigMap is created manually
-createGpuConfigMap: true
-
+# GPU profile ConfigMap: chart always creates it from templates/configmap.yaml and mounts it at /etc/config-manager/.
+# Do not set `configMap` here for the default name default-dcm-config. Set `configMap` only in overrides to rename the object.
 # AINIC ConfigMap name (optional - required for AINIC configuration)
 # Set to empty string ("") to disable AINIC ConfigMap mounting
-ainicConfigMap: "ainic-config"
-
+ainicConfigMap: ""
 # Whether to create the AINIC ConfigMap from template
 # Set to false in E2E tests where ConfigMap is created manually
-createAinicConfigMap: true
+createAinicConfigMap: false
+# Set false on GPU-only nodes where these paths do not exist (e.g. minimal k3s).
+ainicHostMounts: false
+# Set true in E2E / CI environments without real AMD GPUs to skip the driver-init wait loop.
+simEnabled: true

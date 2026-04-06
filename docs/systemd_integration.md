@@ -19,6 +19,8 @@ The configmap contains a key "gpuClientSystemdServices" which declares the list 
 
 ## ConfigMap
 
+`numGPUsAssigned` must match the number of GPUs covered by that profile on the node (same as `TotalGPUCount` when there are no skipped GPUs). The value `8` below is only an example.
+
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -32,9 +34,6 @@ data:
       {
           "cpx-profile":
           {
-              "skippedGPUs": {
-                  "ids": []
-              },
               "profiles": [
                   {
                       "computePartition": "CPX",
@@ -45,9 +44,6 @@ data:
           },
           "spx-profile":
           {
-              "skippedGPUs": {
-                  "ids": []
-              },
               "profiles": [
                   {
                       "computePartition": "SPX",

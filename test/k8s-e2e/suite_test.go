@@ -21,6 +21,8 @@ var exporterNS = flag.String("namespace", "kube-amd-gpu", "namespace")
 var registry = flag.String("registry", "docker.io/rocm/device-config-manager", "dcm container registry")
 var imageTag = flag.String("imagetag", "v1", "dcm image version/tag")
 var platform = flag.String("platform", "k8s", "k8s/openshift")
+// When true (default), skip DCM tests that require successful on-GPU partitioning; use false on nodes with real AMD GPUs.
+var e2eSimEnable = flag.Bool("simenabled", true, "SIM mode: skip tests that need a real AMD GPU (successful partition paths).")
 
 // All the test config, state and any helper caches for running this test
 // Hook up gocheck into the "go test" runner.
@@ -48,6 +50,7 @@ func (s *E2ESuite) SetUpSuite(c *C) {
 		return
 	}
 	s.platform = *platform
+	s.simEnable = *e2eSimEnable
 
 	// use the current context in kubeconfig
 	config, err := clientcmd.BuildConfigFromFlags("", s.kubeconfig)

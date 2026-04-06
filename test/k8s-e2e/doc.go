@@ -16,4 +16,6 @@ type E2ESuite struct {
 	ns         string
 	kubeconfig string
 	platform   string
+	// When true (default: -simenabled), suite is in SIM mode — tests that need a real AMD GPU can c.Skip.
+	simEnable bool
 }

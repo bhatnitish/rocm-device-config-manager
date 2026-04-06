@@ -110,28 +110,16 @@ make dcm-docker
 
 ### Helm Chart Packaging
 
-To package Helm charts:
+To package and install Helm charts (run **`make helm`** first so **`values.yaml`** and **`helm-charts-k8s/*.tgz`** match your image tag; **`make helm-install`** only installs and does not re-package):
 
 ```bash
+make helm DCM_IMAGE_TAG=dev
 make helm-install
-
-cd /home/amd/user/device-config-manager/helm-charts; helm lint
-==> Linting .
-[INFO] Chart.yaml: icon is recommended
-
-1 chart(s) linted, 0 chart(s) failed
-helm package helm-charts/ --destination ./helm-charts
-Successfully packaged chart and saved it to: helm-charts/device-config-manager-charts-v1.4.0.tgz
-cd /home/amd/user/device-config-manager/helm-charts; helm install amd-gpu-operator ./device-config-manager-charts-v1.4.0.tgz -n kube-amd-gpu --create-namespace -f values.yaml
-NAME: amd-gpu-operator
-LAST DEPLOYED: Thu Apr 3 04:57:29 2025
-NAMESPACE: kube-amd-gpu
-STATUS: deployed
-REVISION: 1
-TEST SUITE: None
+# Or one step: make helm-deploy DCM_IMAGE_TAG=dev
 ```
 
-- This internally builds the helm-charts of DCM and then installs the charts in `kube-amd-gpu` namespace.
+- **`make helm`** lints, patches **`helm-charts/values.yaml`** (image repo/tag), and writes **`helm-charts-k8s/*.tgz`**. **`make helm-install`** runs **`helm upgrade --install`** against that tgz and does not re-run **`make helm`** (so your tag is not reset).
+- Release **`amd-gpu-operator`** is installed in **`kube-amd-gpu`**.
 - DCM daemonset pod is now up and users can perform the partitioning using the labels approach as mentioned above.
 - Users can also try the `make helm-build` command to build the helm-charts.
 

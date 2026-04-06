@@ -51,8 +51,8 @@ func detectDeviceCapabilities(isKubernetes bool) DeviceCapabilities {
 		}
 	} else {
 		// In Kubernetes mode, both GPU and AINIC are supported
-		// Check for GPU config file
-		if _, err := os.Stat(globals.JsonFilePath); err == nil {
+		// GPU config must exist and be non-empty (valid mounted ConfigMap)
+		if fi, err := os.Stat(globals.JsonFilePath); err == nil && fi.Size() > 0 {
 			capabilities.HasGPUConfig = true
 		}
 
@@ -150,10 +150,15 @@ func main() {
 	// Determine what to initialize based on capabilities and flags
 	var activeManagers []string
 
-	// Initialize GPU Manager if conditions are met (Kubernetes mode only)
 	if enableGPU && !isKubernetes {
 		log.Println("GPU partitioning not supported in Debian mode - skipping GPU manager")
-	} else if enableGPU && capabilities.HasGPUConfig && isKubernetes {
+		os.Exit(1)
+	}
+	if enableGPU && isKubernetes && !capabilities.HasGPUConfig {
+		log.Printf("GPU config not present at startup: %s", globals.JsonFilePath)
+		os.Exit(1)
+	}
+	if enableGPU && isKubernetes {
 		initializeGPUManager(isKubernetes)
 		activeManagers = append(activeManagers, "GPU")
 	}

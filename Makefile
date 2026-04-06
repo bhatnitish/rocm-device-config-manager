@@ -39,7 +39,8 @@ export RHEL_BASE_MIN_IMAGE
 export RHEL_REPO_URL
 export REGISTRY
 
-TOP_DIR := $(PWD)
+# Repo root (not $(PWD): wrong under `make -C` or stale PWD in env).
+TOP_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 HELM_CHARTS_DIR := $(TOP_DIR)/helm-charts
 PKG_LIB_PATH := ${TOP_DIR}/debian/usr/local/configs/
 PKG_CONFIG_PATH := ${TOP_DIR}/debian/etc/dcm/
@@ -108,7 +109,7 @@ DOCS_SPELLCHECK_CONFIG ?= .spellcheck.yaml
 # library branch to build amdsmi libraries
 AMDSMI_BRANCH ?= rocm-7.2.1
 AMDSMI_COMMIT ?= 1e91f3c1527617066f50c22f9ec4368fe82e1a3c
-PROJECT_VERSION ?= "1.4.0"
+PROJECT_VERSION ?= "1.4.1"
 
 EXCLUDE_PATTERN := "libamdsmi"
 GO_PKG := $(shell go list ./...  2>/dev/null | grep github.com/ROCm/device-config-manager | egrep -v ${EXCLUDE_PATTERN})
@@ -217,13 +218,21 @@ helm-lint:
 helm-build: helm-lint
 	helm package helm-charts/ --destination ./helm-charts
 
+# Install only: uses chart + values from a prior `make helm` (or `make helm DCM_IMAGE_TAG=...`).
+# Does not depend on `helm` — otherwise `make helm-install` would re-run `make helm` without your tag and overwrite values.yaml with DCM_IMAGE_TAG default.
 .PHONY: helm-install
-helm-install: helm-build
-	cd $(HELM_CHARTS_DIR); helm install amd-gpu-operator ./device-config-manager-charts-v1.4.1.tgz -n kube-amd-gpu --create-namespace -f values.yaml
+helm-install:
+	@tgz=$$(ls $(TOP_DIR)/helm-charts-k8s/device-config-manager-charts-*.tgz 2>/dev/null | head -1); \
+	test -n "$$tgz" || (echo "No chart tgz. Run first: make helm   (e.g. make helm DCM_IMAGE_TAG=e2e-img1)"; exit 1); \
+	helm upgrade --install amd-gpu-operator "$$tgz" -n kube-amd-gpu --create-namespace -f $(HELM_CHARTS_DIR)/values.yaml
+
+# One shot: package with same DCM_IMAGE_TAG (and HELM_DCM_IMAGE) then install — variables apply to both steps.
+.PHONY: helm-deploy
+helm-deploy: helm helm-install
 
 .PHONY: helm-uninstall
 helm-uninstall:
-	helm uninstall amd-gpu-operator -n kube-amd-gpu
+	-helm uninstall amd-gpu-operator -n kube-amd-gpu
 
 .PHONY: helm-list
 helm-list:
@@ -407,6 +416,7 @@ copy-assets-k8s:
 	cp -r $(TOP_DIR)/assets/amd_smi_lib/x86_64/$(RHEL_LIBDIR)/lib/* $(TOP_DIR)/build/assets
 
 # cicd target to build helm chart - requires PROJECT_VERSION, DCM_IMAGE_TAG to be set
+# Note: patches helm-charts/values.yaml in place (yq). Restore with: git checkout -- helm-charts/values.yaml
 .PHONY: helm
 helm: helm-lint
 	@rm -rf helm-charts-k8s

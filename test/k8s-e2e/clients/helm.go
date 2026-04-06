@@ -89,13 +89,19 @@ func NewHelmClient(opts ...HelmClientOpt) (*HelmClient, error) {
 	return client, nil
 }
 
+// HelmReleaseNameForNamespace returns a Helm release name derived from the install namespace.
+// Cluster-scoped chart RBAC must not reuse one release name across namespaces on the same cluster.
+func HelmReleaseNameForNamespace(namespace string) string {
+	return "e2e-dcm-" + namespace
+}
+
 func (h *HelmClient) InstallChart(ctx context.Context, chart string, params []string) (string, error) {
 	values := helmValues.Options{
 		Values: params,
 	}
 
 	chartSpec := &helm.ChartSpec{
-		ReleaseName:   "e2e-test-k8s",
+		ReleaseName:   HelmReleaseNameForNamespace(h.ns),
 		ChartName:     chart,
 		Namespace:     h.ns,
 		GenerateName:  false,
@@ -111,6 +117,31 @@ func (h *HelmClient) InstallChart(ctx context.Context, chart string, params []st
 		return "", err
 	}
 	log.Printf("helm chart install resp: %+v", resp)
+	h.relName = resp.Name
+	return resp.Name, err
+}
+
+// InstallOrUpgradeChart installs the chart or upgrades an existing release (same release name per namespace).
+func (h *HelmClient) InstallOrUpgradeChart(ctx context.Context, chart string, params []string) (string, error) {
+	values := helmValues.Options{
+		Values: params,
+	}
+	chartSpec := &helm.ChartSpec{
+		ReleaseName:   HelmReleaseNameForNamespace(h.ns),
+		ChartName:     chart,
+		Namespace:     h.ns,
+		GenerateName:  false,
+		Wait:          true,
+		Timeout:       5 * time.Minute,
+		CleanupOnFail: false,
+		DryRun:        false,
+		ValuesOptions: values,
+	}
+	resp, err := h.client.InstallOrUpgradeChart(ctx, chartSpec, nil)
+	if err != nil {
+		return "", err
+	}
+	log.Printf("helm chart install-or-upgrade resp: %+v", resp)
 	h.relName = resp.Name
 	return resp.Name, err
 }
