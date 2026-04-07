@@ -62,3 +62,5 @@ image:
 jobs:
   asset-build:
     labels: ["CI-Sanity-Build"]
+  devops/jobs/security_scan/sanity:
+    labels: ["CI-Sanity-Build"]

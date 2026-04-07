@@ -1,0 +1,5 @@
+# Security scan configuration
+tool: trivy
+scan_type: artifact
+artifacts:
+  - device-config-manager-<RELEASE_TAG>.tar.gz

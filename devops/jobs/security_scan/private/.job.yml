@@ -1,0 +1,22 @@
+---
+version: 2.0
+image:
+  bind_dir: "/device-config-manager"
+  work_dir: "/device-config-manager/devops/jobs/security_scan/private"
+targets:
+  security_scan_private:
+    commands: ["sh", "../trigger.sh", "device-config-manager", "config-manager-0.0.1-46", "main"]
+    owners: ["email:karan.nath@amd.com"]
+    area:
+    sub-area:
+    feature:
+    build-dependencies:
+      - build-device-config-manager-docker-ubi9
+      - build-helm-artifact
+      - build-debian-package-ub22.04
+      - build-debian-package-ub24.04
+      - build-all
+    asset-dependencies:
+      tags: []
+logfiles:
+submodules: {}
