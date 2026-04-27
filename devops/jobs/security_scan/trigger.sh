@@ -6,8 +6,10 @@ set -eu
 # Downloads the security scan bundle via asset-pull, installs the wheel,
 # and invokes jobd-security-scan-orchestrator to run the security scan.
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 usage() {
-	echo "Usage: $0 <repo_name> [release=\$RELEASE] [branch=\$JOB_BASE_BRANCH] [poll_interval=60] [poll_timeout=7200] [venv_dir=.venv] [config_file=./config.yaml]" >&2
+	echo "Usage: $0 <repo_name> [release=\$RELEASE] [branch=\$JOB_BASE_BRANCH] [poll_interval=60] [poll_timeout=7200] [venv_dir=.venv] [config_file=./jobd_orchestrator_config.yaml] [job_config_file=./jenkins_job_manifest.yaml]" >&2
 }
 
 if [ "$#" -lt 1 ]; then
@@ -22,7 +24,8 @@ BRANCH="${3:-${JOB_BASE_BRANCH:-}}"
 POLL_INTERVAL="${4:-60}"
 POLL_TIMEOUT="${5:-7200}"
 VENV_DIR="${6:-.venv}"
-CONFIG_FILE="${7:-./config.yaml}"
+CONFIG_FILE="${7:-./jobd_orchestrator_config.yaml}"
+JOB_CONFIG_FILE="${8:-./jenkins_job_manifest.yaml}"
 
 if [ -z "${RELEASE}" ]; then
 	echo "Warning: release is not set. Skipping security scan. Provide <release> argument or set RELEASE environment variable." >&2
@@ -38,9 +41,13 @@ fi
 
 BUNDLE_ASSET_NAME="jobd_security_scan_bundle.tar.gz"
 BUNDLE_PACKAGE_NAME="jobd_security_scan_utils"
-BUNDLE_PACKAGE_VERSION="1.0"
+BUNDLE_PACKAGE_VERSION="2.0"
 WHEEL_NAME="jobd_security_scan_orchestrator-0.1.0-py3-none-any.whl"
-JENKINS_CONFIG_NAME="jenkins_config.json"
+
+JOBD_CI_BRIDGE_ASSET_NAME="jobd_ci_bridge_bundle.tar.gz"
+JOBD_CI_BRIDGE_PACKAGE_NAME="jobd_ci_bridge_utils"
+JOBD_CI_BRIDGE_PACKAGE_VERSION="1.0"
+JOBD_CI_BRIDGE_WHEEL_NAME="jobd_ci_bridge_client-0.1.0-py3-none-any.whl"
 
 if ! command -v python3 >/dev/null 2>&1; then
 	echo "Error: python3 is not installed or not in PATH."
@@ -73,15 +80,36 @@ echo "Extracting bundle to: ${BUNDLE_EXTRACT_DIR}"
 mkdir -p "${BUNDLE_EXTRACT_DIR}"
 tar -xzf "${BUNDLE_ASSET_NAME}" -C "${BUNDLE_EXTRACT_DIR}"
 
-JENKINS_CONFIG="${BUNDLE_EXTRACT_DIR}/${JENKINS_CONFIG_NAME}"
-if [ ! -f "${JENKINS_CONFIG}" ]; then
-	echo "Error: Jenkins config not found after extraction: ${JENKINS_CONFIG}"
-	return 1 2>/dev/null || exit 1
-fi
-
 WHEEL_PATH="${BUNDLE_EXTRACT_DIR}/${WHEEL_NAME}"
 if [ ! -f "${WHEEL_PATH}" ]; then
 	echo "Error: Wheel file not found after extraction: ${WHEEL_PATH}"
+	return 1 2>/dev/null || exit 1
+fi
+
+# --- Download jobd_ci_bridge bundle via asset-pull ---
+echo "Downloading jobd_ci_bridge bundle: ${JOBD_CI_BRIDGE_ASSET_NAME}"
+asset-pull \
+	-b sw-repository \
+	-a assets-hq.pensando.io:9000 \
+	-n "${JOBD_CI_BRIDGE_ASSET_NAME}" \
+	"${JOBD_CI_BRIDGE_PACKAGE_NAME}" \
+	"${JOBD_CI_BRIDGE_PACKAGE_VERSION}" \
+	"${JOBD_CI_BRIDGE_ASSET_NAME}"
+
+if [ ! -f "${JOBD_CI_BRIDGE_ASSET_NAME}" ]; then
+	echo "Error: Bundle not found after asset-pull: ${JOBD_CI_BRIDGE_ASSET_NAME}"
+	return 1 2>/dev/null || exit 1
+fi
+
+# --- Extract jobd_ci_bridge bundle ---
+JOBD_CI_BRIDGE_EXTRACT_DIR="jobd_ci_bridge_bundle"
+echo "Extracting jobd_ci_bridge bundle to: ${JOBD_CI_BRIDGE_EXTRACT_DIR}"
+mkdir -p "${JOBD_CI_BRIDGE_EXTRACT_DIR}"
+tar -xzf "${JOBD_CI_BRIDGE_ASSET_NAME}" -C "${JOBD_CI_BRIDGE_EXTRACT_DIR}"
+
+JOBD_CI_BRIDGE_WHEEL_PATH="${JOBD_CI_BRIDGE_EXTRACT_DIR}/${JOBD_CI_BRIDGE_WHEEL_NAME}"
+if [ ! -f "${JOBD_CI_BRIDGE_WHEEL_PATH}" ]; then
+	echo "Error: Wheel file not found after extraction: ${JOBD_CI_BRIDGE_WHEEL_PATH}"
 	return 1 2>/dev/null || exit 1
 fi
 
@@ -114,6 +142,12 @@ fi
 
 echo "Virtual environment ready: ${VENV_DIR}"
 
+# --- Install jobd_ci_bridge wheel ---
+echo "Installing jobd_ci_bridge wheel: ${JOBD_CI_BRIDGE_WHEEL_PATH}"
+python -m pip install "${JOBD_CI_BRIDGE_WHEEL_PATH}"
+
+echo "jobd_ci_bridge wheel installed successfully."
+
 # --- Install wheel ---
 echo "Installing wheel: ${WHEEL_PATH}"
 python -m pip install "${WHEEL_PATH}"
@@ -122,23 +156,37 @@ echo "Wheel installed successfully."
 
 # --- Resolve config file ---
 if [ ! -f "${CONFIG_FILE}" ]; then
-	if [ -f "./devops/jobs/security_scan/sanity/config.yaml" ]; then
+	FALLBACK_CONFIG="${SCRIPT_DIR}/sanity/jobd_orchestrator_config.yaml"
+	if [ -f "${FALLBACK_CONFIG}" ]; then
 		echo "Config file not found at specified path: ${CONFIG_FILE}"
-		echo "Using default config file: ./devops/jobs/security_scan/sanity/config.yaml"
-		CONFIG_FILE="./devops/jobs/security_scan/sanity/config.yaml"
+		echo "Using default config file: ${FALLBACK_CONFIG}"
+		CONFIG_FILE="${FALLBACK_CONFIG}"
 	else
 		echo "Error: config file not found: ${CONFIG_FILE}"
 		return 1 2>/dev/null || exit 1
 	fi
 fi
 
+# --- Resolve job config file ---
+if [ ! -f "${JOB_CONFIG_FILE}" ]; then
+	FALLBACK_JOB_CONFIG="${SCRIPT_DIR}/sanity/jenkins_job_manifest.yaml"
+	if [ -f "${FALLBACK_JOB_CONFIG}" ]; then
+		echo "Job config file not found at specified path: ${JOB_CONFIG_FILE}"
+		echo "Using default job config file: ${FALLBACK_JOB_CONFIG}"
+		JOB_CONFIG_FILE="${FALLBACK_JOB_CONFIG}"
+	else
+		echo "Error: job config file not found: ${JOB_CONFIG_FILE}"
+		return 1 2>/dev/null || exit 1
+	fi
+fi
+
 # --- Invoke orchestrator ---
-echo "Invoking: jobd-security-scan-orchestrator --release ${RELEASE} --repo-name ${REPO_NAME} --branch ${BRANCH} --config ${CONFIG_FILE} --jenkins-config ${JENKINS_CONFIG} --poll-interval ${POLL_INTERVAL} --poll-timeout ${POLL_TIMEOUT}"
+echo "Invoking: jobd-security-scan-orchestrator --release ${RELEASE} --repo-name ${REPO_NAME} --branch ${BRANCH} --config ${CONFIG_FILE} --job-config ${JOB_CONFIG_FILE} --poll-interval ${POLL_INTERVAL} --poll-timeout ${POLL_TIMEOUT}"
 jobd-security-scan-orchestrator \
 	--release "${RELEASE}" \
 	--repo-name "${REPO_NAME}" \
 	--branch "${BRANCH}" \
 	--config "${CONFIG_FILE}" \
-	--jenkins-config "${JENKINS_CONFIG}" \
+	--job-config "${JOB_CONFIG_FILE}" \
 	--poll-interval "${POLL_INTERVAL}" \
 	--poll-timeout "${POLL_TIMEOUT}"

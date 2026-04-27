@@ -1,0 +1,21 @@
+job:
+  name: trivy-security-scan        # Jenkins job name (required)
+  # provider: infra-jenkins        # optional, defaults from ci_bridge_client
+  # timeout_seconds: 3600          # optional, defaults from ci_bridge_client
+  parameters:
+    RELEASE: "${param:RELEASE}"
+    REPO_NAME: "${param:REPO_NAME}"
+    BRANCH: "${param:BRANCH}"
+    ARCHIVE_REPORTS: "false"
+    SKIP_JIRA_INTEGRATION: "${param:SKIP_JIRA_INTEGRATION}"
+    SCAN_TYPE: "${param:SCAN_TYPE}"
+    ARTIFACTS: "${param:ARTIFACTS}"
+
+# Behavior controls how the ci_bridge_client executes the job.
+# This entire section is optional; defaults to mode: wait, logs: stream.
+behavior:
+  mode: wait
+  builds:
+    - job: trivy-artifact-scan-archive
+      logs: fetch
+      artifacts: list
