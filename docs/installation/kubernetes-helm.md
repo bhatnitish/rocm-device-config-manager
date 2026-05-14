@@ -25,7 +25,7 @@ image:
   pullPolicy: Always
 ```
 
-2. Install:
+1. Install:
 
 ```bash
 make helm-build

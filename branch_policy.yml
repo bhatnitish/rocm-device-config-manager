@@ -1,5 +1,7 @@
----
+ ---
 # Required by Auto Cherry Picker automation
 # Defines the list of branches into which the changes would need cherry-picking
 cherry_pick_branches:
   - rocm/device-config-manager:main
+inherit-pr-description: True
+ai-conflict-resolution: True
