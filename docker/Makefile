@@ -12,14 +12,16 @@ VER ?= dev
 DOCKER_CONTAINER_IMG = $(IMAGE_NAME)-$(IMAGE_TAG)
 HOURLY_TAG_LABEL ?= latest
 
+ROCM_TARBALL_URL ?=
+
 .PHONY: docker
 docker:
 	@echo "Building unified DCM Docker container"
 	@echo "HOURLY_TAG : $(HOURLY_TAG_LABEL)"
-	@TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) HOURLY_TAG_LABEL=$(HOURLY_TAG_LABEL) VER=$(VER) ./build_config_manager_release_docker.sh -s
+	@TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) HOURLY_TAG_LABEL=$(HOURLY_TAG_LABEL) VER=$(VER) ROCM_TARBALL_URL=$(ROCM_TARBALL_URL) ./build_config_manager_release_docker.sh -s
 
 .PHONY: docker-publish
 docker-publish:
 	@echo "Publishing unified DCM Docker container"
 	@echo "HOURLY_TAG : $(HOURLY_TAG_LABEL)"
-	@TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) HOURLY_TAG_LABEL=$(HOURLY_TAG_LABEL) VER=$(VER) ./build_config_manager_release_docker.sh -p
+	@TOP_DIR=$(TOP_DIR) UBUNTU_VERSION=$(UBUNTU_VERSION) HOURLY_TAG_LABEL=$(HOURLY_TAG_LABEL) VER=$(VER) ROCM_TARBALL_URL=$(ROCM_TARBALL_URL) ./build_config_manager_release_docker.sh -p
