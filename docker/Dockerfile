@@ -27,6 +27,7 @@ ADD install-rocm-tarball.sh /usr/local/bin/install-rocm-tarball.sh
 RUN chmod +x /usr/local/bin/install-rocm-tarball.sh
 
 RUN microdnf clean all && \
+   microdnf update -y && \
    if [ -n "${ROCM_TARBALL_URL}" ]; then \
       microdnf install -y wget tar gzip findutils sudo procps file libcap-devel vim net-tools kmod \
          iptables-libs dbus dbus-tools pciutils jq python3 && \
