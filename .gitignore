@@ -1,1 +1,7 @@
 internal/bin
+
+# Claude Code: personal/machine-local config — shared config lives in .claude/settings.json and CLAUDE.md
+.claude/settings.local.json
+CLAUDE.local.md
+# Pending session transcripts captured by capture-session.sh — local-only, processed by /curate-learnings
+.claude/kb_source/_pending/

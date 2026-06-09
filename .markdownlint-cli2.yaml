@@ -2,6 +2,8 @@ ignores:
   - "vendor/**"
   - "helm-charts/**"
   - "libamdsmi/**"
+  - "docs-internal/**"
+  - ".claude/**"
 
 config:
   # Disable rules that are too noisy
